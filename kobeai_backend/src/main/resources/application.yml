@@ -1,0 +1,44 @@
+spring:
+  datasource:
+    url: jdbc:mysql://localhost:3306/kobeai?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai
+    username: root
+    password: 123456
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  jpa:
+    show-sql: true
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQL8Dialect
+        format_sql: true
+
+server:
+  port: 8080
+  servlet:
+    context-path: /api
+
+jwt:
+  secret: kobeai-jwt-secret-key-must-be-at-least-256-bits-long-for-security
+  expiration: 86400000
+
+deepseek:
+  api:
+    key: sk-ae9973eaca5748ed90a87a4e4e4784e6
+    base-url: https://api.deepseek.com/v1
+
+ai:
+  deepseek:
+    base-url: https://api.deepseek.com/v1
+    api-key: ${DEEPSEEK_API_KEY:sk-ae9973eaca5748ed90a87a4e4e4784e6}
+    model: deepseek-chat
+    max-tokens: 2000
+    temperature: 0.7
+
+# MinIO Configuration
+minio:
+  endpoint: http://39.98.107.158:9000
+  accessKey: minioadmin
+  secretKey: minioadmin
+  bucketName: photo

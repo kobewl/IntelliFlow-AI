@@ -1,0 +1,121 @@
+server:
+  port: 8080
+  servlet:
+    context-path: /api
+
+spring:
+  application:
+    name: kobeai-backend
+
+  # 数据库配置
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/kobeai?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai
+    username: your-username
+    password: your-password
+
+  # JPA配置
+  jpa:
+    database-platform: org.hibernate.dialect.MySQL8Dialect
+    show-sql: true
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        format_sql: true
+
+  # Redis配置
+  redis:
+    host: localhost
+    port: 6379
+    password: your-redis-password
+    database: 0
+
+  # 文件上传配置
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 100MB
+
+# JWT配置
+jwt:
+  secret: your-jwt-secret-key
+  expiration: 604800 # 7天，单位：秒
+
+# OpenAI配置
+openai:
+  api-key: your-openai-api-key
+  model: gpt-3.5-turbo
+  max-tokens: 2000
+  temperature: 0.7
+
+# 文件存储配置
+storage:
+  # 本地存储
+  local:
+    path: /path/to/your/files
+
+  # 对象存储（示例：阿里云OSS）
+  oss:
+    endpoint: your-oss-endpoint
+    access-key-id: your-access-key-id
+    access-key-secret: your-access-key-secret
+    bucket-name: your-bucket-name
+
+# 邮件配置
+mail:
+  host: smtp.example.com
+  port: 587
+  username: your-email@example.com
+  password: your-email-password
+  properties:
+    mail.smtp.auth: true
+    mail.smtp.starttls.enable: true
+
+# 日志配置
+logging:
+  level:
+    root: INFO
+    com.kobeai: DEBUG
+  file:
+    name: logs/kobeai.log
+    max-size: 10MB
+    max-history: 30
+
+# 跨域配置
+cors:
+  allowed-origins: http://localhost:3000
+  allowed-methods: GET,POST,PUT,DELETE,OPTIONS
+  allowed-headers: "*"
+  allow-credentials: true
+  max-age: 3600
+
+# 缓存配置
+cache:
+  type: redis
+  redis:
+    time-to-live: 3600000 # 1小时，单位：毫秒
+
+# 安全配置
+security:
+  # 密码加密
+  password:
+    encoder: bcrypt
+    strength: 10
+  # 会话
+  session:
+    timeout: 3600 # 1小时，单位：秒
+  # 限流
+  rate-limit:
+    enabled: true
+    capacity: 100
+    refill-rate: 1
+
+# 第三方服务配置
+services:
+  # 短信服务（示例：阿里云SMS）
+  sms:
+    access-key-id: your-access-key-id
+    access-key-secret: your-access-key-secret
+    sign-name: your-sign-name
+    template-code: your-template-code
