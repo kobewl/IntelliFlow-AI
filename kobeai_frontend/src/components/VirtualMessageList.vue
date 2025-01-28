@@ -18,19 +18,37 @@
         <div class="avatar">
           <template v-if="message.role === 'ASSISTANT'">
             <el-avatar 
-              :size="24"
+              :size="36"
               class="ai-avatar"
             >
               <el-icon><ChatRound /></el-icon>
             </el-avatar>
           </template>
           <template v-else>
-            <el-avatar 
-              :size="24"
-              class="user-avatar"
-            >
-              <el-icon><UserFilled /></el-icon>
-            </el-avatar>
+            <template v-if="user?.avatar">
+              <el-image
+                :src="user.avatar"
+                class="user-avatar"
+                fit="cover"
+              >
+                <template #error>
+                  <el-avatar 
+                    :size="36"
+                    class="user-avatar"
+                  >
+                    <el-icon><UserFilled /></el-icon>
+                  </el-avatar>
+                </template>
+              </el-image>
+            </template>
+            <template v-else>
+              <el-avatar 
+                :size="36"
+                class="user-avatar"
+              >
+                <el-icon><UserFilled /></el-icon>
+              </el-avatar>
+            </template>
           </template>
         </div>
         <div class="message-content">
@@ -55,12 +73,39 @@ import MarkdownIt from 'markdown-it'
 import hljs from 'highlight.js'
 import { ChatRound, UserFilled } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
+import { storeToRefs } from 'pinia'
+import { useAuthStore } from '../stores/auth'
 
-// 在 script 开头添加 window 类型声明
-declare global {
-  interface Window {
-    copyCode: (code: string) => void;
+const authStore = useAuthStore()
+const { user } = storeToRefs(authStore)
+
+// 复制代码到剪贴板
+const copyCode = async (code: string) => {
+  try {
+    await navigator.clipboard.writeText(code)
+    ElMessage.success('代码已复制到剪贴板')
+  } catch (err) {
+    ElMessage.error('复制失败')
   }
+}
+
+// 格式化消息内容
+const formatMessage = (content: string): string => {
+  const md: MarkdownIt = new MarkdownIt({
+    highlight: (str: string, lang: string): string => {
+      if (lang && hljs.getLanguage(lang)) {
+        try {
+          const highlighted = hljs.highlight(str, { language: lang }).value
+          return `<pre data-language="${lang}"><code>${highlighted}</code><button class="copy-btn" onclick="copyCode(\`${str.replace(/`/g, '\\`')}\`)">复制代码</button></pre>`
+        } catch (err) {
+          console.error('Failed to highlight code:', err)
+        }
+      }
+      return `<pre><code>${md.utils.escapeHtml(str)}</code></pre>`
+    }
+  })
+
+  return md.render(content)
 }
 
 const props = defineProps<{
@@ -76,26 +121,6 @@ const emit = defineEmits<{
 const containerRef = ref<HTMLElement | null>(null)
 const userScrolling = ref(false)
 const lastUserInteraction = ref(Date.now())
-const md: MarkdownIt = new MarkdownIt({
-  highlight: function (str: string, lang: string): string {
-    if (lang && hljs.getLanguage(lang)) {
-      try {
-        const highlighted = hljs.highlight(str, { language: lang, ignoreIllegals: true }).value
-        return highlighted
-      } catch (__) {
-        console.warn(`Failed to highlight code block with language: ${lang}`)
-      }
-    }
-    return md.utils.escapeHtml(str)
-  },
-  html: true,
-  breaks: true,
-  linkify: true,
-  typographer: true
-})
-
-// 缓存已渲染的消息内容
-const renderedMessages = new Map<string, string>()
 
 // 按创建时间排序的消息列表
 const sortedMessages = computed(() => {
@@ -103,54 +128,6 @@ const sortedMessages = computed(() => {
   console.log('Messages:', props.messages)
   return props.messages
 })
-
-// 复制代码到剪贴板
-function copyCode(code: string) {
-  navigator.clipboard.writeText(code).then(() => {
-    ElMessage.success('代码已复制')
-  }).catch(() => {
-    ElMessage.error('复制失败')
-  })
-}
-
-// 修改 formatMessage 函数，添加复制按钮和语言标记
-function formatMessage(content: string) {
-  if (!content) return ''
-  
-  const cached = renderedMessages.get(content)
-  if (cached) return cached
-  
-  try {
-    // 预处理代码块，保持缩进和对齐
-    const processedContent = content.replace(/```(\w+)?\n([\s\S]*?)```/g, (match, lang, code) => {
-      const trimmedCode = code.split('\n').map((line: string) => line.trimEnd()).join('\n')
-      return `\`\`\`${lang || 'plaintext'}\n${trimmedCode}\`\`\``
-    })
-    
-    let rendered = md.render(processedContent)
-    
-    // 为代码块添加复制按钮和语言标记
-    rendered = rendered.replace(/<pre><code class="language-(\w+)">([\s\S]*?)<\/code><\/pre>/g, (match, lang, codeContent) => {
-      const code = codeContent.replace(/<[^>]+>/g, '').trim()
-      return `<pre data-language="${lang}"><code class="hljs language-${lang}">${codeContent}<button class="copy-btn" onclick="window.copyCode(\`${code.replace(/`/g, '\\`')}\`)"><svg class="copy-icon" viewBox="0 0 24 24" width="12" height="12"><path fill="currentColor" d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg></button></code></pre>`
-    })
-    
-    // 处理没有指定语言的代码块
-    rendered = rendered.replace(/<pre><code>([\s\S]*?)<\/code><\/pre>/g, (match, codeContent) => {
-      const code = codeContent.replace(/<[^>]+>/g, '').trim()
-      return `<pre data-language="plaintext"><code class="hljs">${codeContent}<button class="copy-btn" onclick="window.copyCode(\`${code.replace(/`/g, '\\`')}\`)"><svg class="copy-icon" viewBox="0 0 24 24" width="12" height="12"><path fill="currentColor" d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg></button></code></pre>`
-    })
-    
-    renderedMessages.set(content, rendered)
-    return rendered
-  } catch (error) {
-    console.error('Failed to render markdown:', error)
-    return content
-  }
-}
-
-// 在window上暴露copyCode函数，供内联事件调用
-window.copyCode = copyCode
 
 // 检查是否需要加载更多
 function checkLoadMore() {
@@ -228,6 +205,32 @@ onUnmounted(() => {
     containerRef.value.removeEventListener('scroll', handleScroll)
   }
 })
+
+// 添加深色模式变量
+const darkModeVars = {
+  '--bg-gradient-start': '#1a1a1a',
+  '--bg-gradient-end': '#2d2d2d',
+  '--assistant-bg': 'rgba(255, 255, 255, 0.1)',
+  '--assistant-text': 'rgba(255, 255, 255, 0.9)',
+  '--time-color': 'rgba(255, 255, 255, 0.5)',
+  '--empty-text': 'rgba(255, 255, 255, 0.5)'
+}
+
+// 监听深色模式变化
+watch(() => document.documentElement.classList.contains('dark'), (isDark) => {
+  const container = containerRef.value
+  if (container) {
+    if (isDark) {
+      Object.entries(darkModeVars).forEach(([key, value]) => {
+        container.style.setProperty(key, value)
+      })
+    } else {
+      Object.keys(darkModeVars).forEach(key => {
+        container.style.removeProperty(key)
+      })
+    }
+  }
+}, { immediate: true })
 </script>
 
 <script lang="ts">
@@ -241,20 +244,13 @@ export default {
   height: 100%;
   overflow-y: auto;
   padding: 20px;
-  background: linear-gradient(to bottom, #f0f2f5, #ffffff);
+  background: linear-gradient(to bottom, var(--bg-gradient-start, #f0f2f5), var(--bg-gradient-end, #ffffff));
   scroll-behavior: smooth;
 }
 
 .load-more {
   text-align: center;
   margin-bottom: 12px;
-}
-
-.message-list {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-  padding: 0 12px;
 }
 
 .message-item {
@@ -319,8 +315,8 @@ export default {
 }
 
 .message-item.assistant .message-text {
-  background: #ffffff;
-  color: #333;
+  background: var(--assistant-bg, #ffffff);
+  color: var(--assistant-text, #333);
   border-top-left-radius: 2px;
   box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06);
   margin-right: auto;
@@ -347,7 +343,7 @@ export default {
 
 .message-item.assistant .message-text::before {
   left: -4px;
-  background: #ffffff;
+  background: var(--assistant-bg, #ffffff);
 }
 
 .message-item.user .message-text::before {
@@ -357,33 +353,13 @@ export default {
 
 .message-time {
   font-size: 11px;
-  color: #999;
+  color: var(--time-color, #999);
   margin: 1px 6px;
   opacity: 0.7;
 }
 
 .message-item.user .message-time {
   text-align: right;
-}
-
-.ai-avatar {
-  background: linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%);
-  color: white;
-  width: 100% !important;
-  height: 100% !important;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.user-avatar {
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-  color: white;
-  width: 100% !important;
-  height: 100% !important;
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 
 .avatar :deep(.el-avatar) {
@@ -417,27 +393,6 @@ export default {
   text-transform: uppercase;
 }
 
-/* 深色模式适配 */
-:deep(.dark) {
-  .virtual-message-list {
-    background: linear-gradient(to bottom, #1a1a1a, #2d2d2d);
-  }
-  
-  .message-item.assistant .message-text {
-    background: rgba(255, 255, 255, 0.1);
-    color: rgba(255, 255, 255, 0.9);
-  }
-  
-  .message-item.assistant .message-text::before {
-    background: rgba(255, 255, 255, 0.1);
-  }
-  
-  .message-time {
-    color: rgba(255, 255, 255, 0.5);
-  }
-}
-
-/* 响应式适配 */
 @media (max-width: 768px) {
   .virtual-message-list {
     padding: 16px;
@@ -456,7 +411,7 @@ export default {
   .avatar :deep(.el-icon) {
     font-size: 18px;
   }
-  
+
   .message-content {
     max-width: 85%;
   }
@@ -470,7 +425,7 @@ export default {
 
 .empty-message {
   text-align: center;
-  color: #909399;
+  color: var(--empty-text, #909399);
   padding: 10px 0;
   font-size: 12px;
 }

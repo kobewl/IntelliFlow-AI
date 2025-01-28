@@ -10,6 +10,7 @@ export interface User {
   username: string;
   email?: string;
   phone?: string;
+  avatar?: string;
   userRole: UserRole;
   membershipStartTime?: string;
   membershipEndTime?: string;

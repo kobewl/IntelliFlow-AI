@@ -3,7 +3,7 @@
     <!-- 左侧消息（助手） -->
     <template v-if="role === MessageRole.ASSISTANT">
       <div class="avatar">
-        <el-avatar :size="40" :icon="ChatRound" />
+        <el-avatar :size="40" :icon="ChatRound" class="assistant-avatar" />
       </div>
       <div class="content">
         <div class="bubble">
@@ -22,7 +22,20 @@
         <div class="time">{{ formatTime(createdAt) }}</div>
       </div>
       <div class="avatar">
-        <el-avatar :size="40" :icon="User" />
+        <template v-if="user?.avatar">
+          <el-image
+            class="user-avatar-image"
+            :src="user.avatar"
+            fit="cover"
+          >
+            <template #error>
+              <el-avatar :size="40" :icon="User" class="user-avatar-fallback" />
+            </template>
+          </el-image>
+        </template>
+        <template v-else>
+          <el-avatar :size="40" :icon="User" class="user-avatar-fallback" />
+        </template>
       </div>
     </template>
   </div>
@@ -32,6 +45,11 @@
 import { User, ChatRound } from '@element-plus/icons-vue'
 import MarkdownRenderer from './MarkdownRenderer.vue'
 import { MessageRole } from '../types/chat'
+import { storeToRefs } from 'pinia'
+import { useAuthStore } from '../stores/auth'
+
+const authStore = useAuthStore()
+const { user } = storeToRefs(authStore)
 
 defineProps<{
   role: MessageRole
@@ -81,15 +99,27 @@ export default {
 }
 
 .avatar {
-  width: 28px;
-  height: 28px;
+  width: 40px;
+  height: 40px;
   flex-shrink: 0;
   margin-top: 4px;
+  border-radius: 50%;
+  overflow: hidden;
 }
 
-:deep(.el-avatar) {
-  width: 28px !important;
-  height: 28px !important;
+.user-avatar-image {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s ease;
+}
+
+.user-avatar-fallback,
+.assistant-avatar {
+  width: 40px !important;
+  height: 40px !important;
   border-radius: 50% !important;
   background: #fff;
   border: none;
@@ -97,7 +127,9 @@ export default {
   transition: transform 0.2s ease;
 }
 
-:deep(.el-avatar:hover) {
+.user-avatar-image:hover,
+.user-avatar-fallback:hover,
+.assistant-avatar:hover {
   transform: scale(1.05);
 }
 

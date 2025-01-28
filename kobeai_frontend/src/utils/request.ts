@@ -2,8 +2,8 @@ import axios from 'axios'
 import { ElMessage } from 'element-plus'
 
 // 创建 axios 实例
-export const request = axios.create({
-  baseURL: import.meta.env.VITE_APP_API_BASE_URL,
+const request = axios.create({
+  baseURL: import.meta.env.VITE_API_URL,
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json'
@@ -80,4 +80,6 @@ request.interceptors.response.use(
     
     return Promise.reject(error)
   }
-) 
+)
+
+export default request 
