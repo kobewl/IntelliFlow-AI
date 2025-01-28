@@ -162,6 +162,51 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  // 更新用户信息
+  async function updateProfile(data: Partial<User>) {
+    try {
+      loading.value = true
+      error.value = null
+      const response = await authApi.updateProfile(data)
+      
+      if (response.code === 200) {
+        user.value = response.data as User
+        localStorage.setItem('user', JSON.stringify(response.data))
+        return true
+      }
+      
+      throw new Error(response.message || '更新用户信息失败')
+    } catch (err: any) {
+      error.value = err.message
+      throw err
+    } finally {
+      loading.value = false
+    }
+  }
+
+  // 修改密码
+  async function changePassword(currentPassword: string, newPassword: string) {
+    try {
+      loading.value = true
+      error.value = null
+      const response = await authApi.changePassword({
+        currentPassword,
+        newPassword
+      })
+      
+      if (response.code === 200) {
+        return true
+      }
+      
+      throw new Error(response.message || '修改密码失败')
+    } catch (err: any) {
+      error.value = err.message
+      throw err
+    } finally {
+      loading.value = false
+    }
+  }
+
   // 初始化store
   initializeFromStorage()
 
@@ -176,6 +221,8 @@ export const useAuthStore = defineStore('auth', () => {
     register,
     getCurrentUserInfo,
     clearAuthState,
-    initializeFromStorage
+    initializeFromStorage,
+    updateProfile,
+    changePassword
   }
 }) 

@@ -25,4 +25,10 @@ public interface UserService {
 
     // 更新用户头像
     ApiResponse<?> updateAvatar(Long userId, String avatarUrl);
+
+    // 更新用户信息
+    ApiResponse<?> updateProfile(User user);
+
+    // 修改密码
+    ApiResponse<?> changePassword(Long userId, String currentPassword, String newPassword);
 }

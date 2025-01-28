@@ -191,4 +191,65 @@ public class UserServiceImpl implements UserService {
             return ApiResponse.error("更新头像失败: " + e.getMessage());
         }
     }
+
+    @Override
+    @Transactional
+    public ApiResponse<?> updateProfile(User updatedUser) {
+        try {
+            User existingUser = userRepository.findById(updatedUser.getId())
+                    .orElseThrow(() -> new RuntimeException("用户不存在"));
+
+            // 更新基本信息
+            if (updatedUser.getUsername() != null) {
+                // 检查新用户名是否已被其他用户使用
+                userRepository.findByUsername(updatedUser.getUsername())
+                        .ifPresent(user -> {
+                            if (!user.getId().equals(existingUser.getId())) {
+                                throw new RuntimeException("用户名已存在");
+                            }
+                        });
+                existingUser.setUsername(updatedUser.getUsername());
+            }
+
+            if (updatedUser.getEmail() != null) {
+                userRepository.findByEmail(updatedUser.getEmail())
+                        .ifPresent(user -> {
+                            if (!user.getId().equals(existingUser.getId())) {
+                                throw new RuntimeException("邮箱已被使用");
+                            }
+                        });
+                existingUser.setEmail(updatedUser.getEmail());
+            }
+
+            // 保存更新
+            User savedUser = userRepository.save(existingUser);
+            return ApiResponse.success("用户信息更新成功", savedUser);
+        } catch (Exception e) {
+            log.error("更新用户信息失败", e);
+            return ApiResponse.error(e.getMessage());
+        }
+    }
+
+    @Override
+    @Transactional
+    public ApiResponse<?> changePassword(Long userId, String currentPassword, String newPassword) {
+        try {
+            User user = userRepository.findById(userId)
+                    .orElseThrow(() -> new RuntimeException("用户不存在"));
+
+            // 验证当前密码
+            if (!passwordEncoder.matches(currentPassword, user.getPassword())) {
+                return ApiResponse.error("当前密码错误");
+            }
+
+            // 更新密码
+            user.setPassword(passwordEncoder.encode(newPassword));
+            userRepository.save(user);
+
+            return ApiResponse.success("密码修改成功");
+        } catch (Exception e) {
+            log.error("修改密码失败", e);
+            return ApiResponse.error(e.getMessage());
+        }
+    }
 }
