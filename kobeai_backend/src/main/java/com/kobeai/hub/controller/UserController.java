@@ -1,5 +1,6 @@
 package com.kobeai.hub.controller;
 
+import com.kobeai.hub.dto.request.ChangePasswordRequest;
 import com.kobeai.hub.dto.request.LoginRequest;
 import com.kobeai.hub.dto.request.RegisterRequest;
 import com.kobeai.hub.dto.response.ApiResponse;
@@ -59,18 +60,46 @@ public class UserController {
     @PostMapping("/avatar")
     @ApiOperation("上传用户头像")
     public ApiResponse<?> uploadAvatar(@RequestParam("file") MultipartFile file,
-                                     @RequestHeader("Authorization") String authHeader) {
+            @RequestHeader("Authorization") String authHeader) {
         try {
             String token = extractToken(authHeader);
             User user = userService.getUserProfile(token);
-            
+
             // 上传文件到 MinIO
             String avatarUrl = fileService.uploadFile(file, "photo");
-            
+
             // 更新用户头像
             return userService.updateAvatar(user.getId(), avatarUrl);
         } catch (Exception e) {
             return ApiResponse.error("头像上传失败: " + e.getMessage());
+        }
+    }
+
+    @PutMapping("/profile")
+    @ApiOperation("更新用户信息")
+    public ApiResponse<?> updateProfile(@RequestBody User user,
+            @RequestHeader("Authorization") String authHeader) {
+        try {
+            String token = extractToken(authHeader);
+            User currentUser = userService.getUserProfile(token);
+            user.setId(currentUser.getId()); // 确保使用当前用户的ID
+            return userService.updateProfile(user);
+        } catch (Exception e) {
+            return ApiResponse.error(e.getMessage());
+        }
+    }
+
+    @PutMapping("/password")
+    @ApiOperation("修改密码")
+    public ApiResponse<?> changePassword(@RequestBody ChangePasswordRequest request,
+            @RequestHeader("Authorization") String authHeader) {
+        try {
+            String token = extractToken(authHeader);
+            User currentUser = userService.getUserProfile(token);
+            return userService.changePassword(currentUser.getId(), request.getCurrentPassword(),
+                    request.getNewPassword());
+        } catch (Exception e) {
+            return ApiResponse.error(e.getMessage());
         }
     }
 
