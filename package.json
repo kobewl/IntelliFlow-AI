@@ -1,6 +1,0 @@
-{
-  "dependencies": {
-    "@types/prismjs": "^1.26.5",
-    "prismjs": "^1.29.0"
-  }
-}
