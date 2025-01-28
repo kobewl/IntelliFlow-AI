@@ -3,10 +3,34 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref, computed } from 'vue'
+import { onMounted, ref, computed, nextTick } from 'vue'
 import MarkdownIt from 'markdown-it'
-import hljs from 'highlight.js'
-import 'highlight.js/styles/atom-one-dark.css'
+import Prism from 'prismjs'
+// 导入 Prism 核心样式
+import 'prismjs/themes/prism-tomorrow.css'
+// 导入额外的语言支持
+import 'prismjs/components/prism-python'
+import 'prismjs/components/prism-javascript'
+import 'prismjs/components/prism-typescript'
+import 'prismjs/components/prism-java'
+import 'prismjs/components/prism-c'
+import 'prismjs/components/prism-cpp'
+import 'prismjs/components/prism-csharp'
+import 'prismjs/components/prism-go'
+import 'prismjs/components/prism-rust'
+import 'prismjs/components/prism-sql'
+import 'prismjs/components/prism-markup'
+import 'prismjs/components/prism-css'
+import 'prismjs/components/prism-scss'
+import 'prismjs/components/prism-json'
+import 'prismjs/components/prism-yaml'
+import 'prismjs/components/prism-markdown'
+// 导入插件
+import 'prismjs/plugins/line-numbers/prism-line-numbers'
+import 'prismjs/plugins/line-numbers/prism-line-numbers.css'
+import 'prismjs/plugins/toolbar/prism-toolbar'
+import 'prismjs/plugins/toolbar/prism-toolbar.css'
+import 'prismjs/plugins/copy-to-clipboard/prism-copy-to-clipboard'
 import 'github-markdown-css/github-markdown.css'
 
 const props = defineProps<{
@@ -24,17 +48,23 @@ const md = new MarkdownIt({
   typographer: true,
   breaks: true,
   highlight: function (str, lang) {
-    if (lang && hljs.getLanguage(lang)) {
+    if (lang && Prism.languages[lang]) {
       try {
-        return `<div class="code-block-wrapper">
+        // 确保语言小写
+        lang = lang.toLowerCase()
+        const code = Prism.highlight(str, Prism.languages[lang], lang)
+        return `<div class="code-block-wrapper ${lang}">
                   <div class="code-block-header">
                     <span class="code-lang">${lang}</span>
-                  </div>
-                  <pre class="hljs"><code>${hljs.highlight(str, { language: lang }).value}</code></pre>
+                    </div>
+                  <pre class="line-numbers"><code class="language-${lang}">${code}</code></pre>
                 </div>`
-      } catch (__) {}
+      } catch (err) {
+        console.error('Prism highlight error:', err)
+      }
     }
-    return `<pre class="hljs"><code>${md.utils.escapeHtml(str)}</code></pre>`
+    // 如果没有指定语言或者发生错误，返回未格式化的代码
+    return `<pre class="line-numbers"><code>${md.utils.escapeHtml(str)}</code></pre>`
   }
 })
 
@@ -42,39 +72,11 @@ const renderedContent = ref('')
 
 onMounted(() => {
   renderedContent.value = md.render(props.content)
-  initializeCodeBlocks()
-})
-
-function initializeCodeBlocks() {
-  const codeBlocks = document.querySelectorAll('.code-block-wrapper')
-  codeBlocks.forEach(block => {
-    const copyButton = document.createElement('button')
-    copyButton.className = 'copy-button'
-    copyButton.innerHTML = '<i class="far fa-copy"></i>'
-    
-    copyButton.addEventListener('click', async () => {
-      const code = block.querySelector('code')?.textContent || ''
-      try {
-        await navigator.clipboard.writeText(code)
-        copyButton.innerHTML = '<i class="fas fa-check"></i>'
-        setTimeout(() => {
-          copyButton.innerHTML = '<i class="far fa-copy"></i>'
-        }, 2000)
-      } catch (err) {
-        console.error('Failed to copy:', err)
-        copyButton.innerHTML = '<i class="fas fa-times"></i>'
-        setTimeout(() => {
-          copyButton.innerHTML = '<i class="far fa-copy"></i>'
-        }, 2000)
-      }
-    })
-    
-    const header = block.querySelector('.code-block-header')
-    if (header) {
-      header.appendChild(copyButton)
-    }
+  // 确保在下一个 tick 执行高亮
+  nextTick(() => {
+    Prism.highlightAll()
   })
-}
+})
 
 defineOptions({
   name: 'MarkdownRenderer'
@@ -156,61 +158,172 @@ export default {
 
 /* 代码块样式 */
 .code-block-wrapper {
-  margin: 0.5em 0;
+  margin: 1em 0;
   border-radius: 8px;
   overflow: hidden;
-  background: #1E1E1E;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  background: var(--prism-background, #2d2d2d);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
 .code-block-header {
+  padding: 0.5em 1em;
+  background: var(--prism-header-background, #21252b);
+  border-bottom: 1px solid var(--prism-border-color);
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 8px 12px;
-  background: #2C2C2C;
-  border-bottom: 1px solid #3C3C3C;
 }
 
 .code-lang {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 12px;
-  color: #888;
+  font-size: 0.8em;
+  color: var(--prism-lang-color);
+  text-transform: uppercase;
 }
 
-.copy-button {
-  padding: 4px 8px;
-  font-size: 12px;
-  color: #888;
-  background: transparent;
-  border: 1px solid #3C3C3C;
+/* Prism 主题自定义 */
+:root {
+  --prism-background: #282c34;
+  --prism-header-background: #21252b;
+  --prism-border-color: #3e4451;
+  --prism-lang-color: #abb2bf;
+}
+
+.token.comment,
+.token.prolog,
+.token.doctype,
+.token.cdata {
+  color: #5c6370;
+  font-style: italic;
+}
+
+.token.function {
+  color: #61afef;
+}
+
+.token.keyword {
+  color: #c678dd;
+}
+
+.token.string {
+  color: #98c379;
+}
+
+.token.number {
+  color: #d19a66;
+}
+
+.token.operator {
+  color: #56b6c2;
+}
+
+.token.class-name {
+  color: #e5c07b;
+}
+
+.token.variable {
+  color: #e06c75;
+}
+
+/* 行号样式 */
+.line-numbers .line-numbers-rows {
+  border-right: 1px solid #3e4451;
+  padding: 1em 0;
+}
+
+.line-numbers .line-numbers-rows > span:before {
+  color: #495162;
+}
+
+/* 亮色主题 */
+.markdown-body:not(.dark-theme) {
+  --prism-background: #f6f8fa;
+  --prism-header-background: #f0f2f5;
+  --prism-border-color: #e1e4e8;
+  --prism-lang-color: #666666;
+  --prism-line-number-color: #bbb;
+}
+
+.markdown-body:not(.dark-theme) .token.comment,
+.markdown-body:not(.dark-theme) .token.prolog,
+.markdown-body:not(.dark-theme) .token.doctype,
+.markdown-body:not(.dark-theme) .token.cdata {
+  color: #6a737d;
+}
+
+.markdown-body:not(.dark-theme) .token.function {
+  color: #005cc5;
+}
+
+.markdown-body:not(.dark-theme) .token.keyword {
+  color: #d73a49;
+}
+
+.markdown-body:not(.dark-theme) .token.string {
+  color: #22863a;
+}
+
+.markdown-body:not(.dark-theme) .token.number {
+  color: #e36209;
+}
+
+.markdown-body:not(.dark-theme) .token.operator {
+  color: #d73a49;
+}
+
+.markdown-body:not(.dark-theme) .token.class-name {
+  color: #6f42c1;
+}
+
+.markdown-body:not(.dark-theme) .token.variable {
+  color: #005cc5;
+}
+
+.markdown-body:not(.dark-theme) .line-numbers .line-numbers-rows {
+  border-right: 1px solid #e1e4e8;
+}
+
+.markdown-body:not(.dark-theme) .line-numbers .line-numbers-rows > span:before {
+  color: #bbb;
+}
+
+/* 代码块工具栏 */
+div.code-toolbar {
+  position: relative;
+}
+
+div.code-toolbar > .toolbar {
+  position: absolute;
+  top: 0.3em;
+  right: 0.2em;
+  opacity: 0;
+  transition: opacity 0.3s ease-in-out;
+}
+
+div.code-toolbar:hover > .toolbar {
+  opacity: 1;
+}
+
+div.code-toolbar > .toolbar > .toolbar-item > button {
+  background: none;
+  border: 1px solid var(--prism-border-color);
+  color: var(--prism-lang-color);
+  font-size: 0.8em;
+  padding: 0.3em 0.7em;
+  margin: 0 0.2em;
   border-radius: 4px;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
-.copy-button:hover {
-  color: #fff;
-  border-color: #888;
+div.code-toolbar > .toolbar > .toolbar-item > button:hover {
   background: rgba(255, 255, 255, 0.1);
+  color: #fff;
 }
 
-.markdown-body pre {
-  margin: 0;
-  padding: 12px;
-  overflow-x: auto;
-  font-family: 'JetBrains Mono', 'Fira Code', monospace;
-  font-size: 13px;
-  line-height: 1.5;
-  color: #D4D4D4;
-}
-
-.markdown-body code {
-  font-family: 'JetBrains Mono', 'Fira Code', monospace;
-  font-size: 0.9em;
-  padding: 0.2em 0.4em;
-  border-radius: 4px;
-  background: rgba(0, 0, 0, 0.05);
+.markdown-body:not(.dark-theme) div.code-toolbar > .toolbar > .toolbar-item > button:hover {
+  background: rgba(0, 0, 0, 0.1);
+  color: #000;
 }
 
 /* 引用块样式 */
@@ -268,6 +381,11 @@ export default {
 /* 深色模式适配 */
 .dark-theme {
   color: #fff;
+  --prism-background: #282c34;
+  --prism-header-background: #21252b;
+  --prism-border-color: #404859;
+  --prism-lang-color: #abb2bf;
+  --prism-line-number-color: #636d83;
 }
 
 .dark-theme a {
@@ -324,27 +442,147 @@ export default {
   }
 }
 
-/* 滚动条美化 */
-.markdown-body ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+/* 滚动条样式 */
+.markdown-body pre::-webkit-scrollbar {
+  height: 8px;
+  width: 8px;
 }
 
-.markdown-body ::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 3px;
+.markdown-body pre::-webkit-scrollbar-thumb {
+  background: #404040;
+  border-radius: 4px;
 }
 
-.markdown-body ::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.05);
-  border-radius: 3px;
+.markdown-body pre::-webkit-scrollbar-track {
+  background: #1a1a1a;
+  border-radius: 4px;
 }
 
-.dark-theme ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.2);
+/* 修改代码块样式 */
+pre[class*="language-"] {
+  margin: 0;
+  padding: 1em;
+  overflow: auto;
+  background: var(--prism-background, #282c34) !important;
 }
 
-.dark-theme ::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.05);
+code[class*="language-"] {
+  font-family: 'JetBrains Mono', Consolas, Monaco, 'Andale Mono', 'Ubuntu Mono', monospace;
+  font-size: 14px;
+  line-height: 1.5;
+  direction: ltr;
+  text-align: left;
+  white-space: pre;
+  word-spacing: normal;
+  word-break: normal;
+  tab-size: 4;
+  hyphens: none;
+  background: none !important;
+}
+
+/* 行号样式优化 */
+pre[class*="language-"].line-numbers {
+  position: relative;
+  padding-left: 3.8em;
+  counter-reset: linenumber;
+}
+
+pre[class*="language-"].line-numbers > code {
+  position: relative;
+  white-space: inherit;
+}
+
+.line-numbers .line-numbers-rows {
+  position: absolute;
+  pointer-events: none;
+  top: 1em;
+  font-size: 100%;
+  left: 0;
+  width: 3em;
+  letter-spacing: -1px;
+  border-right: 1px solid var(--prism-border-color, #404859);
+  user-select: none;
+}
+
+.line-numbers-rows > span {
+  display: block;
+  counter-increment: linenumber;
+}
+
+.line-numbers-rows > span:before {
+  content: counter(linenumber);
+  color: var(--prism-line-number-color, #636d83);
+  display: block;
+  padding-right: 0.8em;
+  text-align: right;
+}
+
+/* 工具栏样式优化 */
+div.code-toolbar {
+  position: relative;
+}
+
+div.code-toolbar > .toolbar {
+  position: absolute;
+  top: 0.3em;
+  right: 0.2em;
+  opacity: 0;
+  transition: opacity 0.3s ease-in-out;
+}
+
+div.code-toolbar:hover > .toolbar {
+  opacity: 1;
+}
+
+div.code-toolbar > .toolbar > .toolbar-item > button {
+  background: none;
+  border: 1px solid var(--prism-border-color);
+  color: var(--prism-lang-color);
+  font-size: 0.8em;
+  padding: 0.3em 0.7em;
+  margin: 0 0.2em;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+div.code-toolbar > .toolbar > .toolbar-item > button:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+/* 语言标签样式 */
+.code-block-header {
+  padding: 0.5em 1em;
+  background: var(--prism-header-background, #21252b);
+  border-bottom: 1px solid var(--prism-border-color);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.code-lang {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.8em;
+  color: var(--prism-lang-color);
+  text-transform: uppercase;
+}
+
+/* 亮色主题变量 */
+.markdown-body:not(.dark-theme) {
+  --prism-background: #f6f8fa;
+  --prism-header-background: #f0f2f5;
+  --prism-border-color: #e1e4e8;
+  --prism-lang-color: #666666;
+  --prism-line-number-color: #bbb;
+}
+
+/* 暗色主题变量 */
+.dark-theme {
+  --prism-background: #282c34;
+  --prism-header-background: #21252b;
+  --prism-border-color: #404859;
+  --prism-lang-color: #abb2bf;
+  --prism-line-number-color: #636d83;
 }
 </style> 
