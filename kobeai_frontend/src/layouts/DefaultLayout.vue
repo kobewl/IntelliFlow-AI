@@ -16,17 +16,7 @@
           </div>
           <div class="user-actions">
             <template v-if="authStore.isAuthenticated">
-              <el-dropdown>
-                <el-button>
-                  {{ authStore.user?.username }}
-                  <el-icon class="el-icon--right"><arrow-down /></el-icon>
-                </el-button>
-                <template #dropdown>
-                  <el-dropdown-menu>
-                    <el-dropdown-item @click="handleLogout">退出登录</el-dropdown-item>
-                  </el-dropdown-menu>
-                </template>
-              </el-dropdown>
+              <UserProfile />
             </template>
             <template v-else>
               <el-button type="primary" @click="$router.push('/auth/login')">
@@ -48,6 +38,7 @@
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../store/auth'
 import { ElMessageBox, ElMessage } from 'element-plus'
+import UserProfile from '../components/UserProfile.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -74,6 +65,10 @@ const handleLogout = async () => {
       console.error('Logout failed:', error)
     }
   }
+}
+
+const handleUpgrade = () => {
+  router.push('/vip-plans')
 }
 </script>
 
@@ -132,6 +127,30 @@ const handleLogout = async () => {
   align-items: center;
 }
 
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.upgrade-btn {
+  font-size: 12px;
+  padding: 4px 12px;
+  height: 28px;
+  border-radius: 14px;
+  background: linear-gradient(45deg, var(--el-color-danger), var(--el-color-danger-light-3));
+  border: none;
+  color: white;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+}
+
+.upgrade-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(var(--el-color-danger-rgb), 0.3);
+}
+
 .el-main {
   padding: 20px;
   background-color: var(--el-bg-color-page);
@@ -148,6 +167,12 @@ const handleLogout = async () => {
   
   .logo h1 {
     font-size: 20px;
+  }
+
+  .upgrade-btn {
+    padding: 2px 8px;
+    font-size: 11px;
+    height: 24px;
   }
 }
 </style> 
