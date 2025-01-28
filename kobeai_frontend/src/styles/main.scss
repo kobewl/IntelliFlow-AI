@@ -1,0 +1,40 @@
+:root {
+  // 基础字体大小
+  --el-font-size-base: 14px;
+}
+
+// 消息样式
+body[data-message-style='rounded'] {
+  .message-bubble {
+    border-radius: 16px;
+  }
+}
+
+body[data-message-style='square'] {
+  .message-bubble {
+    border-radius: 4px;
+  }
+}
+
+body[data-message-style='minimal'] {
+  .message-bubble {
+    border-radius: 0;
+    border: none;
+    background: transparent;
+  }
+}
+
+// 深色模式
+html.dark {
+  color-scheme: dark;
+  
+  body {
+    background-color: var(--el-bg-color);
+    color: var(--el-text-color-primary);
+  }
+}
+
+// 主题过渡动画
+* {
+  transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
+} 

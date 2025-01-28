@@ -3,6 +3,7 @@ import { createPinia } from 'pinia'
 import ElementPlus from 'element-plus'
 import * as ElementPlusIconsVue from '@element-plus/icons-vue'
 import 'element-plus/dist/index.css'
+import './styles/main.scss'
 
 import App from './App.vue'
 import router from './router'
@@ -43,9 +44,10 @@ Prism.manual = true
 
 // 创建应用实例
 const app = createApp(App)
+const pinia = createPinia()
 
 // 使用插件
-app.use(createPinia())
+app.use(pinia)
 app.use(router)
 app.use(ElementPlus)
 
@@ -53,6 +55,11 @@ app.use(ElementPlus)
 for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
   app.component(key, component)
 }
+
+// 初始化设置
+import { useSettingsStore } from './store/settings'
+const settingsStore = useSettingsStore()
+settingsStore.applySettings(settingsStore.settings)
 
 // 挂载应用
 app.mount('#app')
