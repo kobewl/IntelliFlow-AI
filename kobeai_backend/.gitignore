@@ -1,0 +1,189 @@
+# Maven
+target/
+!.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+*.jar
+*.war
+*.ear
+*.class
+
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+# IDE
+.idea/
+*.iws
+*.iml
+*.ipr
+.vscode/
+.project
+.classpath
+.settings/
+.springBeans
+.sts4-cache
+nbproject/
+nb-configuration.xml
+
+# Logs
+logs/
+*.log
+*.log.*
+*.gz
+
+# Environment and Configuration
+.env
+.env.*
+!.env.example
+application-*.yml
+!application.yml
+!application-example.yml
+*.properties
+!application.properties
+!application-example.properties
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+/data/
+*.sql
+!schema.sql
+
+# Security
+*.jks
+*.keystore
+*.p12
+*.pem
+*.key
+*.crt
+*.cer
+*.der
+*.priv
+
+# Temp files
+*.tmp
+*.temp
+.temp/
+.cache/
+tmp/
+temp/
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Maven Wrapper
+.mvn/*
+!.mvn/wrapper/
+mvnw
+mvnw.cmd
+.flattened-pom.xml
+
+# Node (if using Node.js for frontend)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Project specific
+/upload/
+/files/
+/static/
+/public/
+*.bak
+*.swp
+*.swo
+
+### STS ###
+.apt_generated
+.factorypath
+
+### NetBeans ###
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+### Environment files ###
+.env
+.env.*
+!.env.example
+application-*.yml
+!application.yml
+!application-example.yml
+
+### Logs ###
+logs/
+*.log
+*.gz
+
+### Database ###
+*.db
+*.sqlite
+*.sqlite3
+/data/
+
+### Security ###
+*.jks
+*.keystore
+*.p12
+*.pem
+*.key
+*.crt
+*.cer
+*.der
+*.priv
+
+### Temp files ###
+*.tmp
+*.temp
+.temp/
+.cache/
+
+### OS generated files ###
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+### Maven ###
+.mvn/*
+!.mvn/wrapper/
+mvnw
+mvnw.cmd
+.flattened-pom.xml
+
+### Gradle ###
+.gradle
+**/build/
+!src/**/build/
+gradle-app.setting
+!gradle-wrapper.jar
+.gradletasknamecache
+
+### Node ###
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+### Project specific ###
+# Add any project specific files/directories to ignore 

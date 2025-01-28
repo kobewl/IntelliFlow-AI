@@ -1,0 +1,19 @@
+-- 如果需要手动创建表结构，可以在这里添加CREATE TABLE语句
+-- 通常使用JPA自动创建表结构，这个文件可以为空 
+
+-- 添加用户表字段
+ALTER TABLE users 
+ADD COLUMN IF NOT EXISTS user_role VARCHAR(20) NOT NULL DEFAULT 'NORMAL' COMMENT '用户角色：NORMAL-普通用户 VIP-VIP会员 SVIP-SVIP会员 ADMIN-管理员',
+ADD COLUMN IF NOT EXISTS membership_start_time DATETIME COMMENT '会员开始时间',
+ADD COLUMN IF NOT EXISTS membership_end_time DATETIME COMMENT '会员结束时间',
+ADD COLUMN IF NOT EXISTS created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+ADD COLUMN IF NOT EXISTS updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+ADD COLUMN IF NOT EXISTS is_deleted TINYINT(1) NOT NULL DEFAULT 0 COMMENT '0-未删除 1-已删除';
+
+-- 更新现有用户的角色为普通用户
+UPDATE users SET user_role = 'NORMAL' WHERE user_role IS NULL;
+
+-- 确保现有记录的时间戳字段有值
+UPDATE users SET 
+    created_at = CURRENT_TIMESTAMP WHERE created_at IS NULL,
+    updated_at = CURRENT_TIMESTAMP WHERE updated_at IS NULL; 
