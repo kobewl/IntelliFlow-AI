@@ -28,20 +28,6 @@
         </div>
         
         <div class="header-actions">
-          <el-tooltip content="切换主题">
-          <ThemeSwitch />
-          </el-tooltip>
-          
-          <el-tooltip content="清空对话">
-            <el-button
-              circle
-              plain
-              @click="handleClearChat"
-            >
-              <el-icon><Delete /></el-icon>
-            </el-button>
-          </el-tooltip>
-
           <UserProfile />
         </div>
       </div>
@@ -127,11 +113,9 @@ import { useAuthStore } from '../store/auth'
 import { MessageRole } from '../types/chat'
 import ConversationList from '../components/ConversationList.vue'
 import VirtualMessageList from '../components/VirtualMessageList.vue'
-import ThemeSwitch from '../components/ThemeSwitch.vue'
-import FileUpload from '../components/FileUpload.vue'
-import FileMessage from '../components/FileMessage.vue'
 import UserProfile from '../components/UserProfile.vue'
 import { useRouter } from 'vue-router'
+import { checkPresetQuestion } from '../utils/presets'
 
 const chatStore = useChatStore()
 const authStore = useAuthStore()
@@ -525,18 +509,7 @@ async function handleUserAction(command: string) {
 .header-actions {
   display: flex;
   align-items: center;
-  gap: 12px;
-}
-
-.header-actions :deep(.theme-switch) {
-  cursor: pointer;
-  padding: 6px;
-  border-radius: 50%;
-  transition: all 0.3s ease;
-}
-
-.header-actions :deep(.theme-switch:hover) {
-  background: var(--el-fill-color-light);
+  gap: 8px;
 }
 
 .user-profile {
