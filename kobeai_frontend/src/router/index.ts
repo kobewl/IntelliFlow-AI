@@ -17,7 +17,7 @@ const router = createRouter({
       name: 'login',
       component: () => import('@/views/auth/Login.vue'),
       meta: {
-        requiresGuest: true,
+        requiresAuth: false,
         layout: 'auth'
       }
     },
@@ -26,7 +26,7 @@ const router = createRouter({
       name: 'register',
       component: () => import('@/views/auth/Register.vue'),
       meta: {
-        requiresGuest: true,
+        requiresAuth: false,
         layout: 'auth'
       }
     },
@@ -51,26 +51,27 @@ const router = createRouter({
   ]
 })
 
-// 路由守卫
+// 全局前置守卫
 router.beforeEach(async (to, from, next) => {
   const authStore = useAuthStore()
   
-  // 如果需要登录
-  if (to.meta.requiresAuth && !authStore.isAuthenticated) {
-    return next({
-      path: '/auth/login',
-      query: { redirect: to.fullPath }
-    })
-  }
-  
-  // 如果已登录不能访问的页面（登录和注册页面）
-  if (to.meta.requiresGuest && authStore.isAuthenticated) {
-    return next('/chat')
-  }
-  
-  // 如果是根路径且已登录，重定向到聊天页面
-  if (to.path === '/' && authStore.isAuthenticated) {
-    return next('/chat')
+  // 如果路由需要认证
+  if (to.meta.requiresAuth) {
+    // 初始化认证状态
+    const isAuthenticated = await authStore.initializeAuth()
+    
+    if (!isAuthenticated) {
+      // 保存原始目标路由
+      next({
+        path: '/auth/login',
+        query: { redirect: to.fullPath }
+      })
+      return
+    }
+  } else if (to.path.startsWith('/auth/') && authStore.isAuthenticated) {
+    // 如果用户已登录，访问登录/注册页面，重定向到首页
+    next({ path: '/' })
+    return
   }
   
   next()

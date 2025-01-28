@@ -1,7 +1,7 @@
 import axios from 'axios'
 import type { AxiosResponse } from 'axios'
 import type { ApiResponse } from './types'
-import { api, getAuthToken } from './auth'
+import { api, getAuthToken, shouldRefreshToken, clearAuth } from './auth'
 import type { MessageRole } from '../types/chat'
 
 // 聊天消息接口
@@ -48,13 +48,29 @@ const apiInstance = axios.create({
 
 // 请求拦截器
 apiInstance.interceptors.request.use(
-  (config) => {
-    const token = getAuthToken()
-    if (token) {
-      config.headers = config.headers || {}
-      // 确保token包含Bearer前缀
-      config.headers.Authorization = token.startsWith('Bearer ') ? token : `Bearer ${token}`
+  async (config) => {
+    const { token } = getAuthToken()
+    if (!token) {
+      return config
     }
+
+    // 检查token是否需要刷新
+    if (shouldRefreshToken()) {
+      try {
+        await api.refreshToken()
+        const { token: newToken } = getAuthToken()
+        if (newToken) {
+          config.headers = config.headers || {}
+          config.headers.Authorization = newToken
+        }
+      } catch (error) {
+        console.error('Failed to refresh token:', error)
+      }
+    } else {
+      config.headers = config.headers || {}
+      config.headers.Authorization = token
+    }
+    
     return config
   },
   (error) => {
@@ -82,8 +98,7 @@ apiInstance.interceptors.response.use(
         return apiInstance(originalRequest)
       } catch (refreshError) {
         // 刷新失败，清除认证状态并重定向到登录页
-        localStorage.removeItem('token')
-        localStorage.removeItem('user')
+        clearAuth()
         window.location.href = '/auth/login'
         return Promise.reject(new Error('认证已过期，请重新登录'))
       }
@@ -120,7 +135,7 @@ export async function sendMessage(
   message: string,
   onUpdate?: (content: string) => void
 ): Promise<ApiResponse<ChatMessage>> {
-  const token = getAuthToken()
+  const { token } = getAuthToken()
   if (!token) {
     throw new Error('未登录或认证已过期')
   }
@@ -148,11 +163,20 @@ export async function sendMessage(
 
   // 处理普通消息
   try {
+    // 检查token是否需要刷新
+    if (shouldRefreshToken()) {
+      await api.refreshToken()
+      const { token: newToken } = getAuthToken()
+      if (!newToken) {
+        throw new Error('刷新token失败')
+      }
+    }
+
     const response = await fetch(`${import.meta.env.VITE_API_URL || window.location.origin + '/api'}/chat/completions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': token.startsWith('Bearer ') ? token : `Bearer ${token}`,
+        'Authorization': token,
         'Accept': 'text/event-stream',
         'Cache-Control': 'no-cache',
         'Connection': 'keep-alive'
@@ -165,8 +189,7 @@ export async function sendMessage(
 
     if (!response.ok) {
       if (response.status === 401) {
-        localStorage.removeItem('token')
-        localStorage.removeItem('user')
+        clearAuth()
         window.location.href = '/auth/login'
         throw new Error('认证已过期，请重新登录')
       }
