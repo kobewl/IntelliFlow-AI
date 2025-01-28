@@ -23,8 +23,23 @@
               'vip-avatar': isVIP,
               'svip-avatar': isSVIP
             }">
-              <el-icon v-if="!user?.username"><UserFilled /></el-icon>
-              <template v-else>{{ user.username[0]?.toUpperCase() }}</template>
+              <template v-if="user?.avatar">
+                <el-image
+                  :src="user.avatar"
+                  fit="cover"
+                  class="avatar-image"
+                >
+                  <template #error>
+                    <div class="avatar-fallback">
+                      {{ user.username[0]?.toUpperCase() }}
+                    </div>
+                  </template>
+                </el-image>
+              </template>
+              <template v-else>
+                <el-icon v-if="!user?.username"><UserFilled /></el-icon>
+                <template v-else>{{ user.username[0]?.toUpperCase() }}</template>
+              </template>
               <div class="avatar-overlay">
                 <el-icon><Camera /></el-icon>
               </div>
@@ -203,19 +218,25 @@ import { useAuthStore } from '../stores/auth'
 import { formatTime, formatRegistrationTime } from '../utils/time'
 import type { FormInstance } from 'element-plus'
 import { UserRole } from '../types/user'
-
-interface Props {
-  modelValue: boolean
-}
-
-const props = defineProps<Props>()
-const emit = defineEmits<{
-  (e: 'update:modelValue', value: boolean): void
-}>()
+import { uploadFile } from '../api/file'
 
 const visible = ref(false)
 const authStore = useAuthStore()
 const { user } = storeToRefs(authStore)
+
+// 提供show和hide方法
+const show = () => {
+  visible.value = true
+}
+
+const hide = () => {
+  visible.value = false
+}
+
+defineExpose({
+  show,
+  hide
+})
 
 // 用户名编辑相关
 const isEditingUsername = ref(false)
@@ -317,20 +338,6 @@ const membershipStatus = computed(() => {
   return '未知'
 })
 
-// v-model 相关
-watch(() => props.modelValue, (val) => {
-  visible.value = val
-})
-
-watch(visible, (val) => {
-  emit('update:modelValue', val)
-})
-
-// 显示对话框
-const show = () => {
-  visible.value = true
-}
-
 // 用户名编辑相关方法
 const startEditUsername = () => {
   editingUsername.value = user.value?.username || ''
@@ -423,9 +430,48 @@ const handleChangePassword = async () => {
 }
 
 // 头像相关方法
-const handleChangeAvatar = () => {
-  // TODO: 实现头像上传功能
-  ElMessage.info('头像上传功能开发中')
+const handleChangeAvatar = async () => {
+  // 创建文件选择器
+  const input = document.createElement('input')
+  input.type = 'file'
+  input.accept = 'image/*'
+  
+  // 监听文件选择
+  input.onchange = async (e: Event) => {
+    const target = e.target as HTMLInputElement
+    if (!target.files?.length) return
+    
+    const file = target.files[0]
+    
+    // 检查文件类型
+    if (!file.type.startsWith('image/')) {
+      ElMessage.error('请选择图片文件')
+      return
+    }
+    
+    // 检查文件大小（限制为 5MB）
+    if (file.size > 5 * 1024 * 1024) {
+      ElMessage.error('图片大小不能超过 5MB')
+      return
+    }
+    
+    try {
+      // 上传文件
+      const avatarUrl = await uploadFile(file)
+      
+      // 更新用户头像
+      await authStore.updateProfile({
+        avatar: avatarUrl
+      })
+      
+      ElMessage.success('头像上传成功')
+    } catch (error: any) {
+      ElMessage.error(error.message || '头像上传失败')
+    }
+  }
+  
+  // 触发文件选择
+  input.click()
 }
 
 // 绑定邮箱
@@ -435,11 +481,6 @@ const showBindEmail = () => {
     emailInputRef.value?.focus()
   })
 }
-
-// 导出方法供外部使用
-defineExpose({
-  show
-})
 </script>
 
 <style lang="scss" scoped>
@@ -752,5 +793,22 @@ defineExpose({
 
 .user-info-content {
   padding: 24px;
+}
+
+.avatar-image {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.avatar-fallback {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 36px;
+  color: white;
 }
 </style> 

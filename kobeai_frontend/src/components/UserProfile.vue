@@ -11,8 +11,23 @@
             'vip-avatar': isVIP,
             'svip-avatar': isSVIP
           }">
-            <el-icon v-if="!user?.username"><UserFilled /></el-icon>
-            <template v-else>{{ user.username[0]?.toUpperCase() }}</template>
+            <template v-if="user?.avatar">
+              <el-image
+                :src="user.avatar"
+                fit="cover"
+                class="avatar-image"
+              >
+                <template #error>
+                  <div class="avatar-fallback">
+                    {{ user.username[0]?.toUpperCase() }}
+                  </div>
+                </template>
+              </el-image>
+            </template>
+            <template v-else>
+              <el-icon v-if="!user?.username"><UserFilled /></el-icon>
+              <template v-else>{{ user.username[0]?.toUpperCase() }}</template>
+            </template>
           </div>
         </div>
         <div class="user-info">
@@ -263,5 +278,22 @@ async function handleCommand(command: string) {
 
 :deep(.dark) .user-role {
   color: var(--el-text-color-secondary);
+}
+
+.avatar-image {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.avatar-fallback {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  color: white;
 }
 </style> 
