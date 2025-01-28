@@ -25,30 +25,41 @@
             </el-avatar>
           </template>
           <template v-else>
-            <template v-if="user?.avatar">
-              <el-image
-                :src="user.avatar"
-                class="user-avatar"
-                fit="cover"
+            <div class="user-info">
+              <template v-if="user?.avatar">
+                <el-image
+                  :src="user.avatar"
+                  class="user-avatar"
+                  fit="cover"
+                >
+                  <template #error>
+                    <el-avatar 
+                      :size="36"
+                      class="user-avatar"
+                    >
+                      <el-icon><UserFilled /></el-icon>
+                    </el-avatar>
+                  </template>
+                </el-image>
+              </template>
+              <template v-else>
+                <el-avatar 
+                  :size="36"
+                  class="user-avatar"
+                >
+                  <el-icon><UserFilled /></el-icon>
+                </el-avatar>
+              </template>
+              <el-button 
+                v-if="user?.userRole === 'NORMAL'"
+                class="upgrade-btn" 
+                type="primary" 
+                size="small"
+                @click="handleUpgrade"
               >
-                <template #error>
-                  <el-avatar 
-                    :size="36"
-                    class="user-avatar"
-                  >
-                    <el-icon><UserFilled /></el-icon>
-                  </el-avatar>
-                </template>
-              </el-image>
-            </template>
-            <template v-else>
-              <el-avatar 
-                :size="36"
-                class="user-avatar"
-              >
-                <el-icon><UserFilled /></el-icon>
-              </el-avatar>
-            </template>
+                升级VIP
+              </el-button>
+            </div>
           </template>
         </div>
         <div class="message-content">
@@ -75,9 +86,13 @@ import { ChatRound, UserFilled } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { storeToRefs } from 'pinia'
 import { useAuthStore } from '../stores/auth'
+import { useRouter } from 'vue-router'
 
 const authStore = useAuthStore()
 const { user } = storeToRefs(authStore)
+const userType = ref('personal')
+const currentPlan = ref('NORMAL')
+const router = useRouter()
 
 // 复制代码到剪贴板
 const copyCode = async (code: string) => {
@@ -231,6 +246,20 @@ watch(() => document.documentElement.classList.contains('dark'), (isDark) => {
     }
   }
 }, { immediate: true })
+
+// 模拟获取当前用户套餐
+const getCurrentPlan = () => {
+  // 从用户角色获取当前套餐信息
+  currentPlan.value = authStore.user?.userRole || 'NORMAL'
+}
+
+// 初始化
+getCurrentPlan()
+
+// 处理升级按钮点击
+const handleUpgrade = () => {
+  router.push('/vip-plans')
+}
 </script>
 
 <script lang="ts">
@@ -462,6 +491,38 @@ export default {
   }
   30% {
     transform: translateY(-4px);
+  }
+}
+
+.user-info {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.upgrade-btn {
+  font-size: 12px;
+  padding: 4px 8px;
+  height: 24px;
+  border-radius: 12px;
+  background: linear-gradient(45deg, var(--el-color-primary), var(--el-color-primary-light-3));
+  border: none;
+  color: white;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+}
+
+.upgrade-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(var(--el-color-primary-rgb), 0.3);
+}
+
+@media (max-width: 768px) {
+  .upgrade-btn {
+    padding: 2px 6px;
+    font-size: 11px;
   }
 }
 </style> 

@@ -38,6 +38,15 @@ const router = createRouter({
         requiresAuth: true,
         layout: 'default'
       }
+    },
+    {
+      path: '/vip-plans',
+      name: 'vipPlans',
+      component: () => import('@/views/VipPlans.vue'),
+      meta: {
+        requiresAuth: true,
+        layout: 'default'
+      }
     }
   ]
 })

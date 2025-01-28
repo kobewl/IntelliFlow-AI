@@ -1,5 +1,14 @@
 <template>
   <div class="user-profile-wrapper">
+    <el-button 
+      v-if="user?.userRole === UserRole.NORMAL"
+      class="upgrade-btn" 
+      type="danger" 
+      size="small"
+      @click="handleUpgrade"
+    >
+      升级VIP
+    </el-button>
     <el-dropdown trigger="click" @command="handleCommand">
       <div class="user-profile">
         <div class="avatar-container">
@@ -79,12 +88,15 @@ import { storeToRefs } from 'pinia'
 import UserInfo from './UserInfo.vue'
 import Settings from './Settings.vue'
 import { UserRole } from '../types/user'
+import { useRouter } from 'vue-router'
 
 const authStore = useAuthStore()
 const { user } = storeToRefs(authStore)
 
 const userInfoRef = ref()
 const settingsRef = ref()
+
+const router = useRouter()
 
 // 用户角色相关计算属性
 const isVIP = computed(() => user.value?.userRole === UserRole.VIP)
@@ -133,9 +145,46 @@ async function handleCommand(command: string) {
       break
   }
 }
+
+// 处理升级按钮点击
+const handleUpgrade = () => {
+  router.push('/vip-plans')
+}
 </script>
 
 <style scoped>
+.user-profile-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.upgrade-btn {
+  font-size: 12px;
+  padding: 4px 12px;
+  height: 28px;
+  border-radius: 14px;
+  background: linear-gradient(45deg, var(--el-color-danger), var(--el-color-danger-light-3));
+  border: none;
+  color: white;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+}
+
+.upgrade-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(var(--el-color-danger-rgb), 0.3);
+}
+
+@media (max-width: 768px) {
+  .upgrade-btn {
+    padding: 2px 8px;
+    font-size: 11px;
+    height: 24px;
+  }
+}
+
 .user-profile {
   display: flex;
   align-items: center;
