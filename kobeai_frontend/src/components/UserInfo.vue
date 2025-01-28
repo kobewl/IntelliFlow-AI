@@ -114,7 +114,7 @@
             <span>注册时间</span>
           </div>
           <div class="info-value">
-            <span>{{ formatTime(user?.createdAt) }}</span>
+            <span>{{ formatRegistrationTime(user?.createdAt) }}</span>
           </div>
         </div>
       </div>
@@ -200,7 +200,7 @@ import {
 import { ElMessage } from 'element-plus'
 import { storeToRefs } from 'pinia'
 import { useAuthStore } from '../stores/auth'
-import { formatTime } from '../utils/time'
+import { formatTime, formatRegistrationTime } from '../utils/time'
 import type { FormInstance } from 'element-plus'
 import { UserRole } from '../types/user'
 

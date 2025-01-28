@@ -346,18 +346,17 @@ async function handleSend() {
       currentConversation.value.messages = []
     }
 
-    // 添加用户消息
-    currentConversation.value.messages.push({
-      id: Date.now(),
-      role: MessageRole.USER,
-      content: message,
-      createdAt: new Date().toISOString()
-    })
-
     // 检查是否是预设问题
     const presetResponse = checkPresetQuestion(message)
     if (presetResponse) {
-      // 如果是预设问题，直接在前端返回答案
+      // 如果是预设问题，直接在前端添加消息和回复
+      currentConversation.value.messages.push({
+        id: Date.now(),
+        role: MessageRole.USER,
+        content: message,
+        createdAt: new Date().toISOString()
+      })
+      
       currentConversation.value.messages.push({
         id: Date.now() + 1,
         role: MessageRole.ASSISTANT,
