@@ -29,16 +29,81 @@ export interface ApiResponse<T = any> {
   data: T
 }
 
-// 获取认证token
-export function getAuthToken(): string | null {
-  const token = localStorage.getItem('token')
-  if (!token) return null
-  return token
+// 获取认证token和过期时间
+export function getAuthToken(): { token: string | null, expiresAt: number | null } {
+  try {
+    const token = localStorage.getItem('token')
+    const expiresAt = localStorage.getItem('tokenExpiresAt')
+    
+    return {
+      token: token ? (token.startsWith('Bearer ') ? token : `Bearer ${token}`) : null,
+      expiresAt: expiresAt ? parseInt(expiresAt) : null
+    }
+  } catch (error) {
+    console.error('Failed to get auth token:', error)
+    return {
+      token: null,
+      expiresAt: null
+    }
+  }
 }
 
-// 设置认证token
-export function setAuthToken(token: string) {
-  localStorage.setItem('token', token)
+// 检查token是否有效
+export function isTokenValid(): boolean {
+  try {
+    const { token, expiresAt } = getAuthToken()
+    if (!token || !expiresAt) {
+      return false
+    }
+    
+    // 如果token存在且未过期，则有效
+    return Date.now() < expiresAt
+  } catch (error) {
+    console.error('Failed to check token validity:', error)
+    return false
+  }
+}
+
+// 设置认证token和过期时间
+export function setAuthToken(token: string | null, expiresIn: number = 7 * 24 * 60 * 60) {
+  try {
+    if (!token) {
+      clearAuth()
+      return
+    }
+    
+    // 确保token格式一致
+    const formattedToken = token.startsWith('Bearer ') ? token : `Bearer ${token}`
+    localStorage.setItem('token', formattedToken)
+    const expiresAt = Date.now() + expiresIn * 1000
+    localStorage.setItem('tokenExpiresAt', expiresAt.toString())
+  } catch (error) {
+    console.error('Failed to set auth token:', error)
+    clearAuth()
+  }
+}
+
+// 获取带Bearer前缀的认证头
+export function getAuthHeader(token: string): string {
+  if (!token) return ''
+  return `Bearer ${token}`
+}
+
+// 清除认证信息
+export function clearAuth() {
+  localStorage.removeItem('token')
+  localStorage.removeItem('tokenExpiresAt')
+  localStorage.removeItem('user')
+}
+
+// 检查token是否需要刷新
+export function shouldRefreshToken(): boolean {
+  const { expiresAt } = getAuthToken()
+  if (!expiresAt) return false
+  
+  // 如果token将在30分钟内过期，就刷新
+  const thirtyMinutes = 30 * 60 * 1000
+  return Date.now() + thirtyMinutes > expiresAt
 }
 
 // 创建axios实例
@@ -52,11 +117,14 @@ export const api = axios.create({
 
 // 请求拦截器
 api.interceptors.request.use(
-  (config) => {
-    const token = getAuthToken()
-    if (token) {
-      config.headers = config.headers || {}
-      // 如果 token 已经包含 Bearer 前缀，直接使用；否则添加前缀
+  async (config) => {
+    const { token } = getAuthToken()
+    if (!token) {
+      return config
+    }
+
+    config.headers = config.headers || {}
+    if (typeof token === 'string') {
       config.headers.Authorization = token.startsWith('Bearer ') ? token : `Bearer ${token}`
     }
     return config
@@ -71,7 +139,7 @@ api.interceptors.response.use(
   (response: AxiosResponse) => {
     const apiResponse = response.data as ApiResponse<any>
     if (apiResponse.code === 200) {
-      return response // 返回完整的 AxiosResponse
+      return response
     }
     return Promise.reject(new Error(apiResponse.message || '请求失败'))
   },
@@ -79,27 +147,16 @@ api.interceptors.response.use(
     if (error.response?.status === 401) {
       try {
         // 尝试刷新token
-        const currentToken = getAuthToken()
-        if (currentToken) {
-          const response = await authApi.refreshToken()
-          if (response.code === 200 && response.data.token) {
-            // 更新token
-            setAuthToken(response.data.token)
-            // 重试原始请求
-            error.config.headers.Authorization = `Bearer ${response.data.token}`
-            return api(error.config)
-          }
-        }
+        await authApi.refreshToken()
+        // 如果刷新成功，重试原始请求
+        const originalRequest = error.config
+        return api(originalRequest)
       } catch (refreshError) {
-        console.error('Token refresh failed:', refreshError)
+        // 刷新失败，清除认证状态并重定向到登录页
+        clearAuth()
+        window.location.href = '/auth/login'
+        return Promise.reject(new Error('认证已过期，请重新登录'))
       }
-      
-      // 如果刷新失败或没有token，清除认证状态
-      localStorage.removeItem('token')
-      localStorage.removeItem('user')
-      // 重定向到登录页
-      window.location.href = '/auth/login'
-      return Promise.reject(new Error('认证已过期，请重新登录'))
     }
     return Promise.reject(error)
   }
@@ -113,7 +170,6 @@ export const authApi = {
       const response = await api.post<ApiResponse<LoginResponse>>('/auth/login', { username, password })
       const apiResponse = response.data
       if (apiResponse.code === 200 && apiResponse.data.token) {
-        // 保存 token 和用户信息
         setAuthToken(apiResponse.data.token)
         localStorage.setItem('user', JSON.stringify(apiResponse.data.user))
         return apiResponse
@@ -150,26 +206,30 @@ export const authApi = {
   // 登出
   async logout(): Promise<ApiResponse<void>> {
     try {
-      // 获取当前token
-      const token = getAuthToken()
+      const { token } = getAuthToken()
       if (!token) {
-        // 如果没有token，直接返回成功
+        clearAuth()
         return { code: 200, message: 'success', data: void 0 }
       }
 
       const response = await api.post<ApiResponse<void>>('/auth/logout', null, {
         headers: {
-          'Authorization': `Bearer ${token}`
+          'Authorization': token
         }
       })
+      
+      // 清除认证状态
+      clearAuth()
+      
       return response.data
     } catch (error: any) {
       console.error('Logout failed:', error)
-      // 如果是403或401错误，视为退出成功
+      // 清除认证状态
+      clearAuth()
+      
       if (error.response?.status === 403 || error.response?.status === 401) {
         return { code: 200, message: 'success', data: void 0 }
       }
-      // 其他错误则抛出
       throw new Error(error.response?.data?.message || error.message || '退出登录失败')
     }
   },

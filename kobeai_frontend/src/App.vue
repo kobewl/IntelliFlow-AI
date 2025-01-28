@@ -8,16 +8,12 @@ import { useAuthStore } from './store/auth'
 const router = useRouter()
 const authStore = useAuthStore()
 
-// 初始化时加载用户信息
+// 在应用启动时初始化认证状态
 onMounted(async () => {
-  if (authStore.token) {
-    try {
-      await authStore.getCurrentUser()
-    } catch (error) {
-      ElMessage.error('登录已过期，请重新登录')
-      authStore.logout()
-      router.push('/auth/login')
-    }
+  try {
+    await authStore.initializeAuth()
+  } catch (error) {
+    console.error('Failed to initialize auth state:', error)
   }
 })
 

@@ -3,18 +3,43 @@ import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import type { User } from '../types/user'
-import { authApi } from '../api/auth'
+import { authApi, isTokenValid, getAuthToken, clearAuth } from '../api/auth'
 
 export const useAuthStore = defineStore('auth', () => {
-  const token = ref<string | null>(localStorage.getItem('token'))
+  const token = ref<string | null>(null)
   const user = ref<User | null>(null)
   const loading = ref(false)
   const error = ref<string | null>(null)
 
   // 计算属性：是否已认证
   const isAuthenticated = computed(() => {
-    return !!user.value && !!token.value
+    return !!user.value && !!token.value && isTokenValid()
   })
+
+  // 初始化store
+  async function initializeAuth() {
+    try {
+      const { token: storedToken } = getAuthToken()
+      if (!storedToken || !isTokenValid()) {
+        clearAuth()
+        return false
+      }
+
+      token.value = storedToken
+      const storedUser = localStorage.getItem('user')
+      if (storedUser) {
+        user.value = JSON.parse(storedUser)
+      } else {
+        // 如果没有用户信息，尝试获取
+        await getCurrentUserInfo()
+      }
+      return true
+    } catch (err) {
+      console.error('Failed to initialize auth:', err)
+      clearAuth()
+      return false
+    }
+  }
 
   // 登录
   async function login(username: string, password: string) {
@@ -25,9 +50,7 @@ export const useAuthStore = defineStore('auth', () => {
       
       if (response.code === 200 && response.data) {
         token.value = response.data.token
-        user.value = response.data.user as User
-        localStorage.setItem('token', response.data.token)
-        localStorage.setItem('user', JSON.stringify(response.data.user))
+        user.value = response.data.user
         return true
       }
       
@@ -70,7 +93,7 @@ export const useAuthStore = defineStore('auth', () => {
       const response = await authApi.getProfile()
       
       if (response.code === 200) {
-        user.value = response.data as User
+        user.value = response.data
         localStorage.setItem('user', JSON.stringify(response.data))
       } else {
         throw new Error(response.message || '获取用户信息失败')
@@ -90,16 +113,7 @@ export const useAuthStore = defineStore('auth', () => {
       error.value = null
       
       // 先清除本地状态
-      token.value = null
-      user.value = null
-      localStorage.clear()
-      sessionStorage.clear()
-      
-      // 清除所有cookie
-      document.cookie.split(';').forEach(cookie => {
-        const name = cookie.split('=')[0].trim()
-        document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`
-      })
+      clearAuthState()
       
       // 调用后端接口
       try {
@@ -108,14 +122,10 @@ export const useAuthStore = defineStore('auth', () => {
         console.warn('Backend logout failed:', err)
       }
       
-      // 强制重定向到首页
-      const baseUrl = window.location.origin
-      window.location.href = baseUrl
-      
       return true
     } catch (err: any) {
       error.value = err.message
-      throw new Error(err.message || '退出登录失败')
+      throw err
     } finally {
       loading.value = false
     }
@@ -123,43 +133,9 @@ export const useAuthStore = defineStore('auth', () => {
 
   // 清除认证状态
   function clearAuthState() {
-    // 先清除 store 中的状态
     token.value = null
     user.value = null
-    
-    // 然后清除存储的数据
-    try {
-      localStorage.removeItem('token')
-      localStorage.removeItem('user')
-      sessionStorage.clear()
-      
-      // 清除所有相关的 cookie
-      document.cookie.split(';').forEach(cookie => {
-        document.cookie = cookie
-          .replace(/^ +/, '')
-          .replace(/=.*/, '=;expires=' + new Date().toUTCString() + ';path=/')
-      })
-    } catch (err) {
-      console.warn('Failed to clear some storage:', err)
-    }
-  }
-
-  // 初始化store
-  function initializeFromStorage() {
-    try {
-      const storedUser = localStorage.getItem('user')
-      const storedToken = localStorage.getItem('token')
-      
-      if (storedUser && storedToken) {
-        user.value = JSON.parse(storedUser) as User
-        token.value = storedToken
-      } else {
-        clearAuthState()
-      }
-    } catch (err) {
-      console.error('Failed to parse stored user:', err)
-      clearAuthState()
-    }
+    clearAuth()
   }
 
   // 更新用户信息
@@ -170,7 +146,7 @@ export const useAuthStore = defineStore('auth', () => {
       const response = await authApi.updateProfile(data)
       
       if (response.code === 200) {
-        user.value = response.data as User
+        user.value = response.data
         localStorage.setItem('user', JSON.stringify(response.data))
         return true
       }
@@ -207,9 +183,6 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  // 初始化store
-  initializeFromStorage()
-
   return {
     token,
     user,
@@ -221,7 +194,7 @@ export const useAuthStore = defineStore('auth', () => {
     register,
     getCurrentUserInfo,
     clearAuthState,
-    initializeFromStorage,
+    initializeAuth,
     updateProfile,
     changePassword
   }
