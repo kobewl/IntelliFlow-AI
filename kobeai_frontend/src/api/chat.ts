@@ -42,7 +42,7 @@ const apiInstance = axios.create({
     'Content-Type': 'application/json'
   },
   validateStatus: function (status) {
-    return status >= 200 && status < 500 // 只有状态码在此范围内的响应会被视为成功
+    return status >= 200 && status < 500
   }
 })
 
@@ -50,27 +50,12 @@ const apiInstance = axios.create({
 apiInstance.interceptors.request.use(
   async (config) => {
     const { token } = getAuthToken()
-    if (!token) {
+    if (!token || typeof token !== 'string') {
       return config
     }
 
-    // 检查token是否需要刷新
-    if (shouldRefreshToken()) {
-      try {
-        await api.refreshToken()
-        const { token: newToken } = getAuthToken()
-        if (newToken) {
-          config.headers = config.headers || {}
-          config.headers.Authorization = newToken
-        }
-      } catch (error) {
-        console.error('Failed to refresh token:', error)
-      }
-    } else {
-      config.headers = config.headers || {}
-      config.headers.Authorization = token
-    }
-    
+    config.headers = config.headers || {}
+    config.headers.Authorization = token.startsWith('Bearer ') ? token : `Bearer ${token}`
     return config
   },
   (error) => {
@@ -81,29 +66,18 @@ apiInstance.interceptors.request.use(
 // 响应拦截器
 apiInstance.interceptors.response.use(
   (response) => {
-    // 检查响应状态
     if (response.data.code === 200) {
       return response.data
     }
-    // 如果不是成功状态，抛出错误
     return Promise.reject(new Error(response.data.message || '请求失败'))
   },
   async (error) => {
-    if (error.response?.status === 401 || error.response?.status === 403) {
-      try {
-        // 尝试刷新 token
-        await api.refreshToken()
-        // 重试原始请求
-        const originalRequest = error.config
-        return apiInstance(originalRequest)
-      } catch (refreshError) {
-        // 刷新失败，清除认证状态并重定向到登录页
-        clearAuth()
-        window.location.href = '/auth/login'
-        return Promise.reject(new Error('认证已过期，请重新登录'))
-      }
+    if (error.response?.status === 401) {
+      clearAuth()
+      window.location.href = '/auth/login'
+      return Promise.reject(new Error('认证已过期'))
     }
-    return Promise.reject(new Error(error.response?.data?.message || error.message || '网络错误，请稍后重试'))
+    return Promise.reject(error)
   }
 )
 
@@ -129,176 +103,6 @@ function getIdentityResponse(): string {
   return '您好！我是KobeAI，一个智能助手。我可以帮助您解答问题、完成任务，让我们开始对话吧！'
 }
 
-// 发送消息
-export async function sendMessage(
-  conversationId: number, 
-  message: string,
-  onUpdate?: (content: string) => void
-): Promise<ApiResponse<ChatMessage>> {
-  const { token } = getAuthToken()
-  if (!token) {
-    throw new Error('未登录或认证已过期')
-  }
-
-  // 检查是否是身份询问
-  if (isIdentityQuestion(message)) {
-    const response = getIdentityResponse()
-    const identityResponse = {
-      code: 200,
-      message: 'success',
-      data: {
-        id: Date.now(),
-        content: response,
-        role: 'ASSISTANT' as MessageRole,
-        createdAt: new Date().toISOString()
-      }
-    }
-    
-    if (onUpdate) {
-      onUpdate(identityResponse.data.content)
-    }
-    
-    return Promise.resolve(identityResponse)
-  }
-
-  // 处理普通消息
-  try {
-    // 检查token是否需要刷新
-    if (shouldRefreshToken()) {
-      await api.refreshToken()
-      const { token: newToken } = getAuthToken()
-      if (!newToken) {
-        throw new Error('刷新token失败')
-      }
-    }
-
-    const response = await fetch(`${import.meta.env.VITE_API_URL || window.location.origin + '/api'}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': token,
-        'Accept': 'text/event-stream',
-        'Cache-Control': 'no-cache',
-        'Connection': 'keep-alive'
-      },
-      body: JSON.stringify({
-        message,
-        conversationId
-      })
-    })
-
-    if (!response.ok) {
-      if (response.status === 401) {
-        clearAuth()
-        window.location.href = '/auth/login'
-        throw new Error('认证已过期，请重新登录')
-      }
-      throw new Error(`发送消息失败: ${response.status}`)
-    }
-
-    return new Promise((resolve, reject) => {
-      let fullResponse = ''
-      const decoder = new TextDecoder()
-      const reader = response.body!.getReader()
-      let buffer = ''
-
-      async function pump(): Promise<void> {
-        try {
-          while (true) {
-            const { value, done } = await reader.read()
-            
-            if (done) {
-              console.log('Stream complete')
-              break
-            }
-
-            const chunk = decoder.decode(value, { stream: true })
-            console.log('Received chunk:', chunk)
-            buffer += chunk
-
-            // 尝试找到完整的JSON数组
-            let startIndex = 0
-            while (true) {
-              const leftBracket = buffer.indexOf('[', startIndex)
-              if (leftBracket === -1) break
-
-              let rightBracket = -1
-              let bracketCount = 1
-              for (let i = leftBracket + 1; i < buffer.length; i++) {
-                if (buffer[i] === '[') bracketCount++
-                if (buffer[i] === ']') bracketCount--
-                if (bracketCount === 0) {
-                  rightBracket = i
-                  break
-                }
-              }
-
-              if (rightBracket === -1) break
-
-              try {
-                const jsonStr = buffer.substring(leftBracket, rightBracket + 1)
-                const jsonArray = JSON.parse(jsonStr)
-                
-                // 处理JSON数组中的每个项
-                for (const item of jsonArray) {
-                  if (item.data && typeof item.data === 'object' && item.data.choices) {
-                    const delta = item.data.choices[0]?.delta?.content || ''
-                    if (delta) {
-                      fullResponse += delta
-                      onUpdate?.(fullResponse)
-                    }
-                  } else if (item.data && typeof item.data === 'string' && !item.data.startsWith('event:')) {
-                    // 处理最终的完整响应
-                    if (item.data.includes('你好') || item.data.includes('很高兴')) {
-                      fullResponse = item.data
-                      onUpdate?.(fullResponse)
-                    }
-                  }
-                }
-
-                // 移除已处理的部分
-                buffer = buffer.substring(rightBracket + 1)
-                startIndex = 0
-              } catch (error) {
-                console.error('Failed to parse JSON array:', error)
-                startIndex = leftBracket + 1
-              }
-            }
-          }
-
-          resolve({
-            code: 200,
-            message: 'success',
-            data: {
-              id: Date.now(),
-              content: fullResponse,
-              role: 'ASSISTANT',
-              createdAt: new Date().toISOString()
-            }
-          })
-        } catch (error) {
-          console.error('处理响应流时出错:', error)
-          reject(error)
-        } finally {
-          reader.cancel()
-        }
-      }
-
-      const timeout = setTimeout(() => {
-        reader.cancel()
-        reject(new Error('接收消息超时'))
-      }, 60000)
-
-      pump().catch(reject).finally(() => {
-        clearTimeout(timeout)
-      })
-    })
-  } catch (error: any) {
-    console.error('发送消息失败:', error)
-    throw new Error(error.message || '发送消息失败')
-  }
-}
-
 // 统一的API实现
 export const chatApi = {
   // 发送消息
@@ -307,8 +111,8 @@ export const chatApi = {
     message: string,
     onUpdate?: (content: string) => void
   ): Promise<ApiResponse<ChatMessage>> {
-    const token = getAuthToken()
-    if (!token) {
+    let { token } = getAuthToken()
+    if (!token || typeof token !== 'string') {
       throw new Error('未登录或认证已过期')
     }
 
@@ -333,134 +137,275 @@ export const chatApi = {
       return Promise.resolve(identityResponse)
     }
 
-    try {
-      // 发送消息并获取流式响应
-      const response = await fetch(`${import.meta.env.VITE_API_URL || window.location.origin + '/api'}/chat/completions`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': token.startsWith('Bearer ') ? token : `Bearer ${token}`,
-          'Accept': 'text/event-stream',
-          'Cache-Control': 'no-cache',
-          'Connection': 'keep-alive'
-        },
-        body: JSON.stringify({
-          message,
-          conversationId
-        })
-      })
+    // 处理普通消息
+    let retryCount = 0
+    const maxRetries = 3
+    const retryDelay = 1000 // 1秒
+    const maxKeepAliveCount = 3 // 最多允许连续收到3次keep-alive
 
-      if (!response.ok) {
-        if (response.status === 401) {
-          localStorage.removeItem('token')
-          localStorage.removeItem('user')
-          window.location.href = '/auth/login'
-          throw new Error('认证已过期，请重新登录')
+    async function attemptSendMessage(): Promise<ApiResponse<ChatMessage>> {
+      try {
+        // 检查token是否需要刷新
+        if (shouldRefreshToken()) {
+          await api.refreshToken()
+          const { token: newToken } = getAuthToken()
+          if (!newToken || typeof newToken !== 'string') {
+            throw new Error('刷新token失败')
+          }
+          token = newToken
         }
-        throw new Error(`发送消息失败: ${response.status}`)
-      }
 
-      return new Promise((resolve, reject) => {
-        let fullResponse = ''
-        const decoder = new TextDecoder()
-        const reader = response.body!.getReader()
-        let buffer = ''
+        const authToken = token.startsWith('Bearer ') ? token : `Bearer ${token}`
+        
+        // 设置请求超时
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), 10000) // 10秒超时
 
-        async function pump(): Promise<void> {
-          try {
-            while (true) {
-              const { value, done } = await reader.read()
-              
-              if (done) {
-                console.log('Stream complete')
-                break
+        try {
+          const response = await fetch(`${import.meta.env.VITE_API_URL || window.location.origin + '/api'}/chat/completions`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': authToken,
+              'Accept': 'text/event-stream',
+              'Cache-Control': 'no-cache',
+              'Connection': 'keep-alive'
+            },
+            body: JSON.stringify({
+              message,
+              conversationId
+            }),
+            signal: controller.signal
+          })
+
+          clearTimeout(timeoutId)
+
+          if (!response.ok) {
+            if (response.status === 401) {
+              clearAuth()
+              window.location.href = '/auth/login'
+              throw new Error('认证已过期，请重新登录')
+            }
+            throw new Error(`发送消息失败: ${response.status}`)
+          }
+
+          return new Promise((resolve, reject) => {
+            let fullResponse = ''
+            let lastUpdateTime = Date.now()
+            let keepAliveCount = 0
+            let hasReceivedData = false
+            const decoder = new TextDecoder()
+            const reader = response.body!.getReader()
+            let buffer = ''
+
+            // 设置心跳检查
+            const heartbeatInterval = setInterval(() => {
+              const now = Date.now()
+              if (now - lastUpdateTime > 5000) { // 5秒没有更新
+                if (!hasReceivedData && keepAliveCount >= maxKeepAliveCount) {
+                  clearInterval(heartbeatInterval)
+                  reader.cancel()
+                  reject(new Error('DeepSeek API 响应延迟，正在重试...'))
+                }
               }
+            }, 1000)
 
-              const chunk = decoder.decode(value, { stream: true })
-              console.log('Received chunk:', chunk)
-              buffer += chunk
-
-              // 尝试找到完整的JSON数组
-              let startIndex = 0
-              while (true) {
-                const leftBracket = buffer.indexOf('[', startIndex)
-                if (leftBracket === -1) break
-
-                let rightBracket = -1
-                let bracketCount = 1
-                for (let i = leftBracket + 1; i < buffer.length; i++) {
-                  if (buffer[i] === '[') bracketCount++
-                  if (buffer[i] === ']') bracketCount--
-                  if (bracketCount === 0) {
-                    rightBracket = i
+            async function pump(): Promise<void> {
+              try {
+                let keepAliveStartTime = Date.now()
+                while (true) {
+                  const { value, done } = await reader.read()
+                  
+                  if (done) {
+                    console.log('Stream complete')
                     break
                   }
-                }
 
-                if (rightBracket === -1) break
-
-                try {
-                  const jsonStr = buffer.substring(leftBracket, rightBracket + 1)
-                  const jsonArray = JSON.parse(jsonStr)
+                  lastUpdateTime = Date.now()
+                  const chunk = decoder.decode(value, { stream: true })
+                  console.log('Received chunk:', chunk)
                   
-                  // 处理JSON数组中的每个项
-                  for (const item of jsonArray) {
-                    if (item.data && typeof item.data === 'object' && item.data.choices) {
-                      const delta = item.data.choices[0]?.delta?.content || ''
-                      if (delta) {
-                        fullResponse += delta
-                        onUpdate?.(fullResponse)
-                      }
-                    } else if (item.data && typeof item.data === 'string' && !item.data.startsWith('event:')) {
-                      // 处理最终的完整响应
-                      if (item.data.includes('你好') || item.data.includes('很高兴')) {
-                        fullResponse = item.data
-                        onUpdate?.(fullResponse)
-                      }
+                  if (chunk.includes('keep-alive')) {
+                    keepAliveCount++
+                    // 如果持续15秒只收到keep-alive，主动重试
+                    if (!hasReceivedData && (Date.now() - keepAliveStartTime > 15000)) {
+                      throw new Error('DeepSeek API 调度延迟，正在重试...')
                     }
+                    continue
                   }
 
-                  // 移除已处理的部分
-                  buffer = buffer.substring(rightBracket + 1)
-                  startIndex = 0
-                } catch (error) {
-                  console.error('Failed to parse JSON array:', error)
-                  startIndex = leftBracket + 1
+                  if (chunk.trim() === '') {
+                    continue
+                  }
+
+                  // 重置keep-alive计数器，因为收到了实际数据
+                  keepAliveCount = 0
+                  hasReceivedData = true
+                  buffer += chunk
+
+                  // 尝试解析响应
+                  try {
+                    // 首先尝试解析为普通文本
+                    if (chunk.includes('data:')) {
+                      const dataContent = chunk.split('data:')[1]?.trim()
+                      if (dataContent && !dataContent.includes('event:init')) {
+                        try {
+                          const jsonData = JSON.parse(dataContent)
+                          if (jsonData.choices && jsonData.choices[0]?.delta?.content) {
+                            const content = jsonData.choices[0].delta.content
+                            fullResponse += content
+                            onUpdate?.(fullResponse)
+                            hasReceivedData = true
+                            buffer = ''
+                            continue
+                          }
+                        } catch (e) {
+                          // 如果不是JSON格式，直接使用文本内容
+                          if (!dataContent.includes('event:init') && !dataContent.includes('[DONE]')) {
+                            // 检查是否是连接建立消息
+                            if (dataContent === '连接已建立') {
+                              continue
+                            }
+                            fullResponse += dataContent
+                            onUpdate?.(fullResponse)
+                            hasReceivedData = true
+                            buffer = ''
+                            continue
+                          }
+                        }
+                      }
+                    }
+
+                    // 尝试解析为JSON对象
+                    try {
+                      const jsonData = JSON.parse(buffer)
+                      if (jsonData.content) {
+                        // 检查是否是连接建立消息
+                        if (jsonData.content === '连接已建立') {
+                          buffer = ''
+                          continue
+                        }
+                        fullResponse = jsonData.content
+                        onUpdate?.(fullResponse)
+                        hasReceivedData = true
+                        buffer = ''
+                        continue
+                      }
+                    } catch (e) {
+                      // 如果不是JSON对象，继续尝试其他格式
+                    }
+
+                    // 尝试找到完整的JSON数组
+                    let startIndex = 0
+                    while (true) {
+                      const leftBracket = buffer.indexOf('[', startIndex)
+                      if (leftBracket === -1) break
+
+                      let rightBracket = -1
+                      let bracketCount = 1
+                      for (let i = leftBracket + 1; i < buffer.length; i++) {
+                        if (buffer[i] === '[') bracketCount++
+                        if (buffer[i] === ']') bracketCount--
+                        if (bracketCount === 0) {
+                          rightBracket = i
+                          break
+                        }
+                      }
+
+                      if (rightBracket === -1) break
+
+                      try {
+                        const jsonStr = buffer.substring(leftBracket, rightBracket + 1)
+                        const jsonArray = JSON.parse(jsonStr)
+                        
+                        for (const item of jsonArray) {
+                          if (item.data && typeof item.data === 'object' && item.data.choices) {
+                            const delta = item.data.choices[0]?.delta?.content || ''
+                            if (delta) {
+                              fullResponse += delta
+                              onUpdate?.(fullResponse)
+                              hasReceivedData = true
+                            }
+                          } else if (item.data && typeof item.data === 'string') {
+                            if (!item.data.startsWith('event:') && !item.data.includes('keep-alive')) {
+                              // 检查是否是连接建立消息
+                              if (item.data === '连接已建立') {
+                                continue
+                              }
+                              fullResponse += item.data
+                              onUpdate?.(fullResponse)
+                              hasReceivedData = true
+                            }
+                          }
+                        }
+
+                        buffer = buffer.substring(rightBracket + 1)
+                        startIndex = 0
+                      } catch (error) {
+                        console.error('Failed to parse JSON array:', error)
+                        startIndex = leftBracket + 1
+                      }
+                    }
+                  } catch (error) {
+                    console.error('Failed to parse response:', error)
+                  }
                 }
+
+                clearInterval(heartbeatInterval)
+                
+                if (!hasReceivedData) {
+                  throw new Error('服务器未返回有效数据，正在重试...')
+                }
+
+                if (!fullResponse.trim()) {
+                  throw new Error('未收到有效响应，正在重试...')
+                }
+
+                // 检查响应内容是否为连接建立消息
+                if (fullResponse === '连接已建立') {
+                  throw new Error('等待AI响应，正在重试...')
+                }
+
+                resolve({
+                  code: 200,
+                  message: 'success',
+                  data: {
+                    id: Date.now(),
+                    content: fullResponse,
+                    role: 'ASSISTANT',
+                    createdAt: new Date().toISOString()
+                  }
+                })
+              } catch (error) {
+                clearInterval(heartbeatInterval)
+                reject(error)
+              } finally {
+                reader.cancel()
               }
             }
 
-            resolve({
-              code: 200,
-              message: 'success',
-              data: {
-                id: Date.now(),
-                content: fullResponse,
-                role: 'ASSISTANT',
-                createdAt: new Date().toISOString()
-              }
-            })
-          } catch (error) {
-            console.error('处理响应流时出错:', error)
-            reject(error)
-          } finally {
-            reader.cancel()
+            pump().catch(reject)
+          })
+        } catch (error: any) {
+          if (error.name === 'AbortError') {
+            throw new Error('请求超时，正在重试...')
           }
+          throw error
+        } finally {
+          clearTimeout(timeoutId)
         }
-
-        const timeout = setTimeout(() => {
-          reader.cancel()
-          reject(new Error('接收消息超时'))
-        }, 60000)
-
-        pump().catch(reject).finally(() => {
-          clearTimeout(timeout)
-        })
-      })
-    } catch (error: any) {
-      console.error('发送消息失败:', error)
-      throw new Error(error.message || '发送消息失败')
+      } catch (error: any) {
+        if (retryCount < maxRetries) {
+          retryCount++
+          console.log(`重试第 ${retryCount} 次...`)
+          await new Promise(resolve => setTimeout(resolve, retryDelay * retryCount))
+          return attemptSendMessage()
+        }
+        throw new Error(error.message || '发送消息失败，请重试')
+      }
     }
+
+    return attemptSendMessage()
   },
 
   // 获取当前会话
@@ -547,7 +492,5 @@ export const chatApi = {
   }
 }
 
-// 删除重复的接口和实现
-export type { ChatMessage, Conversation, FileMessage } 
-
+export type { ChatMessage, Conversation, FileMessage }
 export default apiInstance 
