@@ -9,7 +9,8 @@ const router = createRouter({
       name: 'home',
       component: () => import('@/views/Home.vue'),
       meta: {
-        layout: 'default'
+        layout: 'default',
+        requiresAuth: false
       }
     },
     {
@@ -54,26 +55,34 @@ const router = createRouter({
 // 全局前置守卫
 router.beforeEach(async (to, from, next) => {
   const authStore = useAuthStore()
-  
-  // 如果路由需要认证
-  if (to.meta.requiresAuth) {
-    // 初始化认证状态
-    const isAuthenticated = await authStore.initializeAuth()
-    
-    if (!isAuthenticated) {
-      // 保存原始目标路由
-      next({
-        path: '/auth/login',
-        query: { redirect: to.fullPath }
-      })
-      return
-    }
-  } else if (to.path.startsWith('/auth/') && authStore.isAuthenticated) {
-    // 如果用户已登录，访问登录/注册页面，重定向到首页
-    next({ path: '/' })
+  const requiresAuth = to.matched.some(record => record.meta.requiresAuth)
+
+  // 初始化认证状态
+  if (!authStore.isAuthenticated) {
+    await authStore.initializeAuth()
+  }
+
+  // 需要认证但未登录
+  if (requiresAuth && !authStore.isAuthenticated) {
+    next({
+      path: '/auth/login',
+      query: { redirect: to.fullPath }
+    })
     return
   }
-  
+
+  // 已登录用户访问登录/注册页面
+  if (authStore.isAuthenticated && (to.name === 'login' || to.name === 'register')) {
+    next({ path: '/chat' })
+    return
+  }
+
+  // 未登录用户访问任何页面，如果不需要认证则允许访问
+  if (!authStore.isAuthenticated && !requiresAuth) {
+    next()
+    return
+  }
+
   next()
 })
 

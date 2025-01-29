@@ -91,9 +91,33 @@ export function getAuthHeader(token: string): string {
 
 // 清除认证信息
 export function clearAuth() {
-  localStorage.removeItem('token')
-  localStorage.removeItem('tokenExpiresAt')
-  localStorage.removeItem('user')
+  try {
+    // 1. 清理认证相关的存储
+    localStorage.removeItem('token')
+    localStorage.removeItem('tokenExpiresAt')
+    localStorage.removeItem('user')
+    localStorage.removeItem('conversations')
+    localStorage.removeItem('currentConversationId')
+    
+    // 2. 清理会话存储
+    sessionStorage.clear()
+    
+    // 3. 移除所有认证相关的 cookie
+    document.cookie.split(';').forEach(cookie => {
+      const [name] = cookie.split('=')
+      document.cookie = `${name.trim()}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`
+    })
+
+    // 4. 清理其他可能的存储
+    try {
+      indexedDB.deleteDatabase('chat-store')
+    } catch (e) {
+      console.warn('Failed to clear IndexedDB:', e)
+    }
+    
+  } catch (error) {
+    console.error('Failed to clear auth:', error)
+  }
 }
 
 // 检查token是否需要刷新
@@ -145,18 +169,10 @@ api.interceptors.response.use(
   },
   async (error) => {
     if (error.response?.status === 401) {
-      try {
-        // 尝试刷新token
-        await authApi.refreshToken()
-        // 如果刷新成功，重试原始请求
-        const originalRequest = error.config
-        return api(originalRequest)
-      } catch (refreshError) {
-        // 刷新失败，清除认证状态并重定向到登录页
-        clearAuth()
-        window.location.href = '/auth/login'
-        return Promise.reject(new Error('认证已过期，请重新登录'))
-      }
+      // 清除认证状态
+      clearAuth()
+      // 不在这里处理重定向，让调用方处理
+      return Promise.reject(new Error('认证已过期'))
     }
     return Promise.reject(error)
   }
@@ -226,10 +242,6 @@ export const authApi = {
       console.error('Logout failed:', error)
       // 清除认证状态
       clearAuth()
-      
-      if (error.response?.status === 403 || error.response?.status === 401) {
-        return { code: 200, message: 'success', data: void 0 }
-      }
       throw new Error(error.response?.data?.message || error.message || '退出登录失败')
     }
   },
