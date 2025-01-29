@@ -35,8 +35,17 @@ export function getAuthToken(): { token: string | null, expiresAt: number | null
     const token = localStorage.getItem('token')
     const expiresAt = localStorage.getItem('tokenExpiresAt')
     
+    if (!token) {
+      return {
+        token: null,
+        expiresAt: null
+      }
+    }
+
+    // 确保token是字符串类型
+    const tokenStr = String(token)
     return {
-      token: token ? (token.startsWith('Bearer ') ? token : `Bearer ${token}`) : null,
+      token: tokenStr.startsWith('Bearer ') ? tokenStr : `Bearer ${tokenStr}`,
       expiresAt: expiresAt ? parseInt(expiresAt) : null
     }
   } catch (error) {
@@ -72,8 +81,10 @@ export function setAuthToken(token: string | null, expiresIn: number = 7 * 24 * 
       return
     }
     
+    // 确保token是字符串类型
+    const tokenStr = String(token)
     // 确保token格式一致
-    const formattedToken = token.startsWith('Bearer ') ? token : `Bearer ${token}`
+    const formattedToken = tokenStr.startsWith('Bearer ') ? tokenStr : `Bearer ${tokenStr}`
     localStorage.setItem('token', formattedToken)
     const expiresAt = Date.now() + expiresIn * 1000
     localStorage.setItem('tokenExpiresAt', expiresAt.toString())
@@ -85,8 +96,8 @@ export function setAuthToken(token: string | null, expiresIn: number = 7 * 24 * 
 
 // 获取带Bearer前缀的认证头
 export function getAuthHeader(token: string): string {
-  if (!token) return ''
-  return `Bearer ${token}`
+  if (!token || typeof token !== 'string') return ''
+  return token.startsWith('Bearer ') ? token : `Bearer ${token}`
 }
 
 // 清除认证信息
@@ -143,14 +154,12 @@ export const api = axios.create({
 api.interceptors.request.use(
   async (config) => {
     const { token } = getAuthToken()
-    if (!token) {
+    if (!token || typeof token !== 'string') {
       return config
     }
 
     config.headers = config.headers || {}
-    if (typeof token === 'string') {
-      config.headers.Authorization = token.startsWith('Bearer ') ? token : `Bearer ${token}`
-    }
+    config.headers.Authorization = token.startsWith('Bearer ') ? token : `Bearer ${token}`
     return config
   },
   (error) => {
@@ -223,14 +232,14 @@ export const authApi = {
   async logout(): Promise<ApiResponse<void>> {
     try {
       const { token } = getAuthToken()
-      if (!token) {
+      if (!token || typeof token !== 'string') {
         clearAuth()
         return { code: 200, message: 'success', data: void 0 }
       }
 
       const response = await api.post<ApiResponse<void>>('/auth/logout', null, {
         headers: {
-          'Authorization': token
+          'Authorization': token.startsWith('Bearer ') ? token : `Bearer ${token}`
         }
       })
       
