@@ -5,18 +5,20 @@
       <div class="sidebar-header">
         <el-button type="primary" class="new-chat-btn" @click="handleNewChat">
           <el-icon><Plus /></el-icon>
-          新对话
+          <span>新对话</span>
         </el-button>
       </div>
       
       <!-- 会话列表 -->
-      <ConversationList
-        :conversations="conversations"
-        :current-id="currentConversationId"
-        @select="handleSelectConversation"
-        @rename="handleRenameConversation"
-        @delete="handleDeleteConversation"
-      />
+      <div class="conversation-list">
+        <ConversationList
+          :conversations="conversations"
+          :current-id="currentConversationId"
+          @select="handleSelectConversation"
+          @rename="handleRenameConversation"
+          @delete="handleDeleteConversation"
+        />
+      </div>
     </div>
 
     <!-- 主聊天区域 -->
@@ -24,7 +26,7 @@
       <div class="chat-header">
         <div class="chat-title">
           <el-icon><ChatRound /></el-icon>
-          {{ currentConversation?.title || '新对话' }}
+          <span>{{ currentConversation?.title || '新对话' }}</span>
         </div>
         
         <div class="header-actions">
@@ -49,7 +51,7 @@
           <p>发送消息开始与AI助手对话</p>
         </div>
       </div>
-
+        
       <!-- 输入区域 -->
       <div class="input-container">
         <div class="input-wrapper">
@@ -73,7 +75,7 @@
                 <el-icon><Paperclip /></el-icon>
               </el-button>
             </el-upload>
-            
+          
             <el-button
               type="primary"
               circle
@@ -98,25 +100,18 @@ import {
   ChatRound, 
   Plus, 
   Delete, 
-  Promotion,
-  Upload,
   Position,
-  DArrowRight,
-  User,
-  Setting,
-  SwitchButton,
-  UserFilled,
   Paperclip
 } from '@element-plus/icons-vue'
-import { useChatStore } from '../store/chat'
 import { useAuthStore } from '../store/auth'
-import { MessageRole } from '../types/chat'
+import { useChatStore } from '../store/chat'
 import ConversationList from '../components/ConversationList.vue'
 import VirtualMessageList from '../components/VirtualMessageList.vue'
 import UserProfile from '../components/UserProfile.vue'
-import { useRouter } from 'vue-router'
-import { checkPresetQuestion } from '../utils/presets'
+import { MessageRole } from '../types/chat'
+import { presetResponses, getRandomResponse } from '../utils/presets'
 
+// Store 实例
 const chatStore = useChatStore()
 const authStore = useAuthStore()
 const { 
@@ -129,17 +124,16 @@ const {
 
 const messageInput = ref('')
 const fileUploadRef = ref()
-const router = useRouter()
+
+// 是否可以发送消息
+const canSendMessage = computed(() => {
+  return messageInput.value.trim().length > 0 && !loading.value
+})
 
 // 当前会话标题
 const currentTitle = computed(() => {
   if (!currentConversation.value) return 'AI助手'
   return currentConversation.value.title || `新会话 ${currentConversation.value.id}`
-})
-
-// 是否可以发送消息
-const canSendMessage = computed(() => {
-  return messageInput.value.trim().length > 0 && !loading.value
 })
 
 // 加载会话列表
@@ -151,30 +145,6 @@ onMounted(async () => {
   }
 })
 
-// 添加预设问答
-const presetResponses = {
-  greetings: [
-    '你好呀！我是你的AI助手KobeAI，很开心能和你聊天 😊',
-    '嗨！今天有什么我可以帮你的吗？',
-    '你好啊！希望今天能帮到你 ✨'
-  ],
-  identity: [
-    '我是KobeAI，你的AI小助手，随时都在这里陪你聊天 😊',
-    '叫我KobeAI就好啦，很高兴认识你！',
-    '我是KobeAI，你的专属AI助手，让我们开始愉快的对话吧 ✨'
-  ],
-  thanks: [
-    '不客气哦，能帮到你我很开心 😊',
-    '这是我应该做的啦，和你聊天很愉快！',
-    '别客气，下次还有问题随时问我哦 ✨'
-  ],
-  greeting_back: [
-    '你也好呀！今天过得怎么样？',
-    '嗨，见到你真开心！有什么我可以帮你的吗？',
-    '你好啊！希望你今天心情愉快 ✨'
-  ]
-}
-
 // 检查是否是预设问题
 function checkPresetQuestion(message: string): string | null {
   message = message.toLowerCase().trim()
@@ -185,53 +155,47 @@ function checkPresetQuestion(message: string): string | null {
       message.includes('你的名字') ||
       message.includes('你是')) {
     return getRandomResponse('identity')
-  }
-  
+}
+
   // 问候语
   if (message === '你好' || message === 'hi' || message === 'hello') {
     return getRandomResponse('greeting_back')
-  }
-  
+}
+
   if (message.includes('在吗') || 
       message.includes('在不在') ||
       message.includes('你好啊') ||
       message.includes('你好呀')) {
     return getRandomResponse('greetings')
-  }
-  
+}
+
   // 感谢
   if (message.includes('谢谢') || 
       message.includes('感谢') ||
       message.includes('thank')) {
     return getRandomResponse('thanks')
   }
-  
+
   return null
 }
-
-// 获取随机回复
-function getRandomResponse(type: keyof typeof presetResponses): string {
-  const responses = presetResponses[type]
-  return responses[Math.floor(Math.random() * responses.length)]
-}
-
+  
 // 修改 handleNewChat 函数
 async function handleNewChat() {
   try {
     loading.value = true
     await chatStore.createConversation()
-    messageInput.value = ''
-    
+  messageInput.value = ''
+  
     // 随机选择一个问候语
     const greeting = presetResponses.greetings[Math.floor(Math.random() * presetResponses.greetings.length)]
     
     // 直接添加到消息列表中，无需调用后端
     if (currentConversation.value) {
       currentConversation.value.messages = [{
-        id: Date.now(),
+    id: Date.now(),
         role: MessageRole.ASSISTANT,
         content: greeting,
-        createdAt: new Date().toISOString()
+    createdAt: new Date().toISOString()
       }]
     }
   } catch (error: any) {
@@ -240,17 +204,17 @@ async function handleNewChat() {
   } finally {
     loading.value = false
   }
-}
-
+  }
+  
 // 选择会话
 async function handleSelectConversation(id: number) {
   try {
     await chatStore.switchConversation(id)
   } catch (error) {
     ElMessage.error('切换会话失败')
-  }
+      }
 }
-
+  
 // 加载更多消息
 async function handleLoadMore() {
   try {
@@ -290,13 +254,13 @@ async function handleClearChat() {
         confirmButtonText: '确定',
         cancelButtonText: '取消',
         type: 'warning'
-      }
+}
     )
-    
+
     if (currentConversation.value) {
       currentConversation.value.messages = []
       ElMessage.success('清空成功')
-    }
+  }
   } catch (error) {
     if (error !== 'cancel') {
       ElMessage.error('清空失败')
@@ -310,7 +274,7 @@ async function handleSend() {
 
   const message = messageInput.value.trim()
   messageInput.value = ''
-
+  
   try {
     // 如果没有当前会话，先创建一个新会话
     if (!currentConversationId.value) {
@@ -321,11 +285,10 @@ async function handleSend() {
       throw new Error('创建会话失败')
     }
 
-    // 确保消息数组已初始化
     if (!currentConversation.value) {
       throw new Error('当前会话不存在')
     }
-    
+
     if (!currentConversation.value.messages) {
       currentConversation.value.messages = []
     }
@@ -340,7 +303,7 @@ async function handleSend() {
         content: message,
         createdAt: new Date().toISOString()
       })
-      
+
       currentConversation.value.messages.push({
         id: Date.now() + 1,
         role: MessageRole.ASSISTANT,
@@ -364,7 +327,7 @@ async function handleSend() {
 // 处理文件选择
 async function handleFileSelect(file: File) {
   ElMessage.warning('文件上传功能暂未实现')
-  return
+    return
 
   // if (!currentConversationId.value) {
   //   try {
@@ -400,7 +363,7 @@ async function handleUserAction(command: string) {
       ElMessage.info('设置功能开发中')
       break
     case 'logout':
-      try {
+  try {
         await ElMessageBox.confirm(
           '确定要退出登录吗？',
           '提示',
@@ -408,9 +371,9 @@ async function handleUserAction(command: string) {
             confirmButtonText: '确定',
             cancelButtonText: '取消',
             type: 'warning'
-          }
+}
         )
-        
+  
         loading.value = true
         
         try {
@@ -427,27 +390,27 @@ async function handleUserAction(command: string) {
           const baseUrl = window.location.origin
           const port = window.location.port || (window.location.protocol === 'https:' ? '443' : '80')
           const targetUrl = `${window.location.protocol}//${window.location.hostname}:${port}`
-          
+
           // 5. 强制跳转到首页
           window.location.href = targetUrl
-          
+
         } catch (error) {
           console.error('Logout failed:', error)
           ElMessage.error('退出失败，请重试')
         } finally {
           loading.value = false
-        }
+  }
       } catch (error) {
         if (error !== 'cancel') {
           console.error('Logout confirmation failed:', error)
-        }
-      }
+}
+}
       break
-  }
+    }
 }
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
 .chat-container {
   height: 100vh;
   display: flex;
@@ -464,12 +427,28 @@ async function handleUserAction(command: string) {
   border-right: 1px solid rgba(0, 0, 0, 0.1);
   box-shadow: 0 0 20px rgba(0, 0, 0, 0.05);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+  &.collapsed {
+    width: 60px;
+
+    .new-chat-btn {
+      width: auto;
+      padding: 8px;
+    }
+
+    .collapse-btn {
+      margin-top: 8px;
+    }
+  }
 }
 
 .sidebar-header {
-  padding: 24px;
+  padding: 16px;
   border-bottom: 1px solid rgba(0, 0, 0, 0.06);
   background: linear-gradient(to right, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.8));
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .new-chat-btn {
@@ -483,11 +462,20 @@ async function handleUserAction(command: string) {
   border: none;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   box-shadow: 0 4px 12px rgba(var(--el-color-primary-rgb), 0.2);
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(var(--el-color-primary-rgb), 0.3);
+  }
 }
 
-.new-chat-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(var(--el-color-primary-rgb), 0.3);
+.collapse-btn {
+  align-self: center;
+}
+
+.conversation-list {
+  flex: 1;
+  overflow-y: auto;
 }
 
 .chat-main {
@@ -522,59 +510,17 @@ async function handleUserAction(command: string) {
   display: flex;
   align-items: center;
   gap: 8px;
-}
 
-.chat-title .el-icon {
-  font-size: 18px;
-  color: var(--el-color-primary);
+  .el-icon {
+    font-size: 18px;
+    color: var(--el-color-primary);
+  }
 }
 
 .header-actions {
   display: flex;
   align-items: center;
   gap: 8px;
-}
-
-.user-profile {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-  padding: 4px 8px;
-  border-radius: 6px;
-  transition: all 0.2s ease;
-}
-
-.user-profile:hover {
-  background: #f3f4f6;
-}
-
-.user-avatar {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-  color: white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 14px;
-}
-
-.user-info {
-  display: flex;
-  flex-direction: column;
-  font-size: 12px;
-}
-
-.username {
-  font-weight: 500;
-  color: #111827;
-}
-
-.user-role {
-  color: #6b7280;
-  font-size: 11px;
 }
 
 .messages-container {
@@ -593,27 +539,27 @@ async function handleUserAction(command: string) {
   padding: 40px;
   color: var(--el-text-color-secondary);
   text-align: center;
-}
 
-.empty-state .empty-icon {
-  margin-bottom: 24px;
-  color: var(--el-color-primary);
-  opacity: 0.8;
-}
+  .empty-icon {
+    margin-bottom: 24px;
+    color: var(--el-color-primary);
+    opacity: 0.8;
+  }
 
-.empty-state h2 {
-  font-size: 24px;
-  font-weight: 600;
-  margin: 0 0 12px;
-  background: linear-gradient(120deg, var(--el-color-primary), #409eff);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
+  h2 {
+    font-size: 24px;
+    font-weight: 600;
+    margin: 0 0 12px;
+    background: linear-gradient(120deg, var(--el-color-primary), #409eff);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
 
-.empty-state p {
-  font-size: 16px;
-  margin: 0;
-  opacity: 0.8;
+  p {
+    font-size: 16px;
+    margin: 0;
+    opacity: 0.8;
+  }
 }
 
 .input-container {
@@ -630,24 +576,24 @@ async function handleUserAction(command: string) {
   padding: 12px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
   transition: all 0.3s ease;
-}
 
-.input-wrapper:focus-within {
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-}
+  &:focus-within {
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  }
 
-:deep(.el-textarea__inner) {
-  border: none;
-  padding: 12px 16px;
-  font-size: 15px;
-  line-height: 1.6;
-  resize: none;
-  box-shadow: none !important;
-  background: transparent;
-}
+  :deep(.el-textarea__inner) {
+    border: none;
+    padding: 12px 16px;
+    font-size: 15px;
+    line-height: 1.6;
+    resize: none;
+    box-shadow: none !important;
+    background: transparent;
 
-:deep(.el-textarea__inner:focus) {
-  box-shadow: none !important;
+    &:focus {
+      box-shadow: none !important;
+    }
+  }
 }
 
 .action-buttons {
@@ -657,30 +603,6 @@ async function handleUserAction(command: string) {
   margin-top: 12px;
   padding-top: 12px;
   border-top: 1px solid rgba(0, 0, 0, 0.06);
-}
-
-.send-button {
-  min-width: 80px;
-  height: 36px;
-  border-radius: 10px;
-  font-size: 14px;
-  font-weight: 500;
-  background: var(--el-color-primary);
-  border: none;
-  color: white;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 2px 8px rgba(var(--el-color-primary-rgb), 0.2);
-}
-
-.send-button:not(:disabled):hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(var(--el-color-primary-rgb), 0.3);
-}
-
-.send-button:disabled {
-  background: var(--el-color-primary-light-5);
-  cursor: not-allowed;
-  opacity: 0.7;
 }
 
 /* 响应式设计 */
@@ -694,10 +616,15 @@ async function handleUserAction(command: string) {
     width: 85%;
     max-width: 300px;
     transform: translateX(-100%);
-  }
 
-  .sidebar.show {
-    transform: translateX(0);
+    &.show {
+      transform: translateX(0);
+    }
+
+    &.collapsed {
+      width: 60px;
+      transform: translateX(0);
+    }
   }
 
   .chat-main {
@@ -708,7 +635,7 @@ async function handleUserAction(command: string) {
     padding: 0 16px;
     height: 56px;
   }
-
+  
   .messages-container {
     padding: 16px;
   }
@@ -732,44 +659,38 @@ async function handleUserAction(command: string) {
     margin-top: 8px;
     padding-top: 8px;
   }
-
-  .send-button {
-    min-width: 70px;
-    height: 32px;
-    font-size: 13px;
-  }
 }
 
 /* 深色模式 */
-html.dark {
+:root.dark {
   .chat-container {
-  background: linear-gradient(to bottom right, #1a1a1a, #2d2d2d);
-}
-
+    background: linear-gradient(to bottom right, #1a1a1a, #2d2d2d);
+  }
+  
   .sidebar {
-  background: rgba(30, 30, 30, 0.9);
-  border-right-color: rgba(255, 255, 255, 0.1);
-}
-
+    background: rgba(30, 30, 30, 0.9);
+    border-right-color: rgba(255, 255, 255, 0.1);
+  }
+  
   .chat-main {
-  background: #1a1a1a;
-}
+    background: #1a1a1a;
+  }
 
   .input-wrapper {
-  background: rgba(40, 40, 40, 0.9);
-}
-
+    background: rgba(40, 40, 40, 0.9);
+  }
+  
   .empty-state {
-  color: rgba(255, 255, 255, 0.7);
-}
+    color: rgba(255, 255, 255, 0.7);
+  }
 
   :deep(.el-textarea__inner) {
-  color: rgba(255, 255, 255, 0.9);
-  background: transparent;
-}
+    color: rgba(255, 255, 255, 0.9);
+    background: transparent;
+  }
 
   .action-buttons {
-  border-top-color: rgba(255, 255, 255, 0.1);
+    border-top-color: rgba(255, 255, 255, 0.1);
   }
 }
 </style> 

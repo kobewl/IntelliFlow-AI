@@ -1,5 +1,5 @@
 // 预设回答
-const presetResponses = {
+export const presetResponses = {
   greetings: [
     '你好呀！我是你的AI助手KobeAI，很开心能和你聊天 😊',
     '嗨！今天有什么我可以帮你的吗？',
@@ -20,10 +20,10 @@ const presetResponses = {
     '嗨，见到你真开心！有什么我可以帮你的吗？',
     '你好啊！希望你今天心情愉快 ✨'
   ]
-}
+} as const
 
 // 检查是否是预设问题
-export function checkPresetQuestion(message: string): string {
+export function checkPresetQuestion(message: string): string | null {
   message = message.toLowerCase().trim()
   
   // 身份相关问题
@@ -53,7 +53,7 @@ export function checkPresetQuestion(message: string): string {
     return getRandomResponse('thanks')
   }
   
-  return message
+  return null
 }
 
 // 获取随机回复
