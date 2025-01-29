@@ -1,20 +1,30 @@
 export enum MessageRole {
-  USER = 'USER',
-  ASSISTANT = 'ASSISTANT'
+  USER = 'user',
+  ASSISTANT = 'assistant',
+  SYSTEM = 'system'
 }
 
-export interface ChatMessage {
-  id: number;
-  content: string;
-  role: MessageRole;
-  createdAt: string;
+export interface Message {
+  id: number
+  role: MessageRole
+  content: string
+  createdAt: string
 }
 
 export interface Conversation {
-  id: number;
-  title: string;
-  messages: ChatMessage[];
-  hasMore?: boolean;
-  nextCursor?: string;
-  createdAt: string;
+  id: number
+  title: string
+  messages: Message[]
+  category?: string
+  createdAt: string
+  updatedAt: string
+  hasMore?: boolean
+  nextCursor?: string
+}
+
+export interface ChatState {
+  conversations: Conversation[]
+  currentConversationId: number | null
+  loading: boolean
+  loadingMore: boolean
 } 

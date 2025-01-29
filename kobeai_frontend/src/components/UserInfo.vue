@@ -101,7 +101,7 @@
           </div>
           <div class="info-value">
             <template v-if="!isEditingEmail">
-              <span>{{ user?.email || '未设置' }}</span>
+              <span>{{ user?.email || '-' }}</span>
               <el-button type="primary" link @click="startEditEmail">
                 <el-icon><EditPen /></el-icon>
               </el-button>
@@ -119,6 +119,96 @@
                   <el-button type="primary" @click="handleEmailSubmit">保存</el-button>
                 </template>
               </el-input>
+            </template>
+          </div>
+        </div>
+
+        <div class="info-item">
+          <div class="info-label">
+            <el-icon><Iphone /></el-icon>
+            <span>手机号</span>
+          </div>
+          <div class="info-value">
+            <template v-if="!isEditingPhone">
+              <span>{{ user?.phone || '-' }}</span>
+              <el-button type="primary" link @click="startEditPhone">
+                <el-icon><EditPen /></el-icon>
+              </el-button>
+            </template>
+            <template v-else>
+              <el-input
+                v-model="editingPhone"
+                size="small"
+                placeholder="请输入手机号"
+                @keyup.enter="handlePhoneSubmit"
+                ref="phoneInputRef"
+              >
+                <template #append>
+                  <el-button @click="cancelEditPhone">取消</el-button>
+                  <el-button type="primary" @click="handlePhoneSubmit">保存</el-button>
+                </template>
+              </el-input>
+            </template>
+          </div>
+        </div>
+
+        <div class="info-item">
+          <div class="info-label">
+            <el-icon><Male /></el-icon>
+            <span>性别</span>
+          </div>
+          <div class="info-value">
+            <template v-if="!isEditingGender">
+              <span>{{ getGenderText }}</span>
+              <el-button type="primary" link @click="startEditGender">
+                <el-icon><EditPen /></el-icon>
+              </el-button>
+            </template>
+            <template v-else>
+              <el-select
+                v-model="editingGender"
+                size="small"
+                placeholder="请选择性别"
+                style="width: 100%"
+              >
+                <el-option label="男" :value="1" />
+                <el-option label="女" :value="2" />
+                <el-option label="保密" :value="0" />
+              </el-select>
+              <div class="edit-actions">
+                <el-button @click="cancelEditGender">取消</el-button>
+                <el-button type="primary" @click="handleGenderSubmit">保存</el-button>
+              </div>
+            </template>
+          </div>
+        </div>
+
+        <div class="info-item">
+          <div class="info-label">
+            <el-icon><Document /></el-icon>
+            <span>个人简介</span>
+          </div>
+          <div class="info-value">
+            <template v-if="!isEditingBio">
+              <span>{{ user?.bio || '这个人很懒，什么都没写~' }}</span>
+              <el-button type="primary" link @click="startEditBio">
+                <el-icon><EditPen /></el-icon>
+              </el-button>
+            </template>
+            <template v-else>
+              <el-input
+                v-model="editingBio"
+                type="textarea"
+                :rows="3"
+                size="small"
+                placeholder="请输入个人简介"
+                maxlength="200"
+                show-word-limit
+              />
+              <div class="edit-actions">
+                <el-button @click="cancelEditBio">取消</el-button>
+                <el-button type="primary" @click="handleBioSubmit">保存</el-button>
+              </div>
             </template>
           </div>
         </div>
@@ -210,7 +300,7 @@ export default {
 import { ref, nextTick, computed, watch } from 'vue'
 import { 
   UserFilled, EditPen, Lock, User, Message, 
-  Timer, Camera, Key
+  Timer, Camera, Key, Iphone, Male, Document
 } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { storeToRefs } from 'pinia'
@@ -247,6 +337,19 @@ const usernameInputRef = ref<HTMLInputElement>()
 const isEditingEmail = ref(false)
 const editingEmail = ref('')
 const emailInputRef = ref<HTMLInputElement>()
+
+// 手机号编辑相关
+const isEditingPhone = ref(false)
+const editingPhone = ref('')
+const phoneInputRef = ref<HTMLInputElement>()
+
+// 性别编辑相关
+const isEditingGender = ref(false)
+const editingGender = ref(0)
+
+// 个人简介编辑相关
+const isEditingBio = ref(false)
+const editingBio = ref('')
 
 // 修改密码相关
 const changePasswordVisible = ref(false)
@@ -338,6 +441,18 @@ const membershipStatus = computed(() => {
   return '未知'
 })
 
+// 性别文本
+const getGenderText = computed(() => {
+  switch (user.value?.gender) {
+    case 1:
+      return '男'
+    case 2:
+      return '女'
+    default:
+      return '保密'
+  }
+})
+
 // 用户名编辑相关方法
 const startEditUsername = () => {
   editingUsername.value = user.value?.username || ''
@@ -397,6 +512,93 @@ const handleEmailSubmit = async () => {
     isEditingEmail.value = false
   } catch (error: any) {
     ElMessage.error(error.message || '邮箱修改失败')
+  }
+}
+
+// 手机号编辑相关方法
+const startEditPhone = () => {
+  editingPhone.value = user.value?.phone || ''
+  isEditingPhone.value = true
+  nextTick(() => {
+    phoneInputRef.value?.focus()
+  })
+}
+
+const cancelEditPhone = () => {
+  editingPhone.value = ''
+  isEditingPhone.value = false
+}
+
+const handlePhoneSubmit = async () => {
+  if (!editingPhone.value) {
+    ElMessage.warning('手机号不能为空')
+    return
+  }
+  try {
+    await authStore.updateProfile({
+      phone: editingPhone.value
+    })
+    ElMessage.success('手机号修改成功')
+    editingPhone.value = ''
+    isEditingPhone.value = false
+  } catch (error: any) {
+    ElMessage.error(error.message || '手机号修改失败')
+  }
+}
+
+// 性别编辑相关方法
+const startEditGender = () => {
+  editingGender.value = user.value?.gender || 0
+  isEditingGender.value = true
+}
+
+const cancelEditGender = () => {
+  editingGender.value = 0
+  isEditingGender.value = false
+}
+
+const handleGenderSubmit = async () => {
+  if (!editingGender.value) {
+    ElMessage.warning('请选择性别')
+    return
+  }
+  try {
+    await authStore.updateProfile({
+      gender: editingGender.value
+    })
+    ElMessage.success('性别修改成功')
+    editingGender.value = 0
+    isEditingGender.value = false
+  } catch (error: any) {
+    ElMessage.error(error.message || '性别修改失败')
+  }
+}
+
+// 个人简介编辑相关方法
+const startEditBio = () => {
+  editingBio.value = user.value?.bio || ''
+  isEditingBio.value = true
+}
+
+const cancelEditBio = () => {
+  editingBio.value = ''
+  isEditingBio.value = false
+}
+
+const handleBioSubmit = async () => {
+  if (!editingBio.value) {
+    ElMessage.warning('个人简介不能为空')
+    return
+  }
+  try {
+    await authStore.updateProfile({
+      bio: editingBio.value
+    })
+    ElMessage.success('个人简介修改成功')
+    editingBio.value = ''
+    isEditingBio.value = false
+  } catch (error: any) {
+    ElMessage.error(error.message || '个人简介修改失败')
   }
 }
 
