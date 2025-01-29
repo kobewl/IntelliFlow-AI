@@ -410,13 +410,36 @@ async function handleUserAction(command: string) {
             type: 'warning'
           }
         )
-        await authStore.logout()
-        ElMessage.success('已退出登录')
-        router.push('/auth/login')
+        
+        loading.value = true
+        
+        try {
+          // 1. 先清除聊天状态
+          chatStore.clearStore()
+          
+          // 2. 执行退出登录
+          await authStore.logout()
+          
+          // 3. 显示成功消息
+          ElMessage.success('已退出登录')
+          
+          // 4. 获取当前的基础URL
+          const baseUrl = window.location.origin
+          const port = window.location.port || (window.location.protocol === 'https:' ? '443' : '80')
+          const targetUrl = `${window.location.protocol}//${window.location.hostname}:${port}`
+          
+          // 5. 强制跳转到首页
+          window.location.href = targetUrl
+          
+        } catch (error) {
+          console.error('Logout failed:', error)
+          ElMessage.error('退出失败，请重试')
+        } finally {
+          loading.value = false
+        }
       } catch (error) {
         if (error !== 'cancel') {
-          ElMessage.error('退出失败，请重试')
-          console.error('Logout failed:', error)
+          console.error('Logout confirmation failed:', error)
         }
       }
       break
@@ -720,33 +743,33 @@ async function handleUserAction(command: string) {
 /* 深色模式 */
 html.dark {
   .chat-container {
-    background: linear-gradient(to bottom right, #1a1a1a, #2d2d2d);
-  }
+  background: linear-gradient(to bottom right, #1a1a1a, #2d2d2d);
+}
 
   .sidebar {
-    background: rgba(30, 30, 30, 0.9);
-    border-right-color: rgba(255, 255, 255, 0.1);
-  }
+  background: rgba(30, 30, 30, 0.9);
+  border-right-color: rgba(255, 255, 255, 0.1);
+}
 
   .chat-main {
-    background: #1a1a1a;
-  }
+  background: #1a1a1a;
+}
 
   .input-wrapper {
-    background: rgba(40, 40, 40, 0.9);
-  }
+  background: rgba(40, 40, 40, 0.9);
+}
 
   .empty-state {
-    color: rgba(255, 255, 255, 0.7);
-  }
+  color: rgba(255, 255, 255, 0.7);
+}
 
   :deep(.el-textarea__inner) {
-    color: rgba(255, 255, 255, 0.9);
-    background: transparent;
-  }
+  color: rgba(255, 255, 255, 0.9);
+  background: transparent;
+}
 
   .action-buttons {
-    border-top-color: rgba(255, 255, 255, 0.1);
+  border-top-color: rgba(255, 255, 255, 0.1);
   }
 }
 </style> 

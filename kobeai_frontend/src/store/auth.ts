@@ -10,6 +10,7 @@ export const useAuthStore = defineStore('auth', () => {
   const user = ref<User | null>(null)
   const loading = ref(false)
   const error = ref<string | null>(null)
+  const router = useRouter()
 
   // 计算属性：是否已认证
   const isAuthenticated = computed(() => {
@@ -112,20 +113,42 @@ export const useAuthStore = defineStore('auth', () => {
       loading.value = true
       error.value = null
       
-      // 先清除本地状态
-      clearAuthState()
-      
-      // 调用后端接口
+      // 1. 调用后端退出接口
       try {
         await authApi.logout()
       } catch (err) {
         console.warn('Backend logout failed:', err)
       }
       
+      // 2. 清理所有状态
+      token.value = null
+      user.value = null
+      
+      // 3. 清理所有本地存储
+      const preserveKeys = ['theme'] // 保留一些不需要清理的配置
+      Object.keys(localStorage).forEach(key => {
+        if (!preserveKeys.includes(key)) {
+          localStorage.removeItem(key)
+        }
+      })
+      
+      // 4. 清理会话存储
+      sessionStorage.clear()
+      
+      // 5. 清理认证状态
+      clearAuth()
+      
+      // 6. 重置 loading 状态
+      loading.value = false
+      
+      // 7. 确保路由状态被重置
+      router.replace('/')
+      
       return true
     } catch (err: any) {
-      error.value = err.message
-      throw err
+      console.error('Logout failed:', err)
+      error.value = err.message || '退出失败'
+      throw error.value
     } finally {
       loading.value = false
     }
@@ -133,8 +156,20 @@ export const useAuthStore = defineStore('auth', () => {
 
   // 清除认证状态
   function clearAuthState() {
+    // 1. 清理状态
     token.value = null
     user.value = null
+    
+    // 2. 清理存储
+    const preserveKeys = ['theme']
+    Object.keys(localStorage).forEach(key => {
+      if (!preserveKeys.includes(key)) {
+        localStorage.removeItem(key)
+      }
+    })
+    sessionStorage.clear()
+    
+    // 3. 清理认证
     clearAuth()
   }
 
