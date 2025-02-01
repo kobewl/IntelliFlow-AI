@@ -245,105 +245,43 @@ export const chatApi = {
 
                   // 尝试解析响应
                   try {
-                    // 首先尝试解析为普通文本
-                    if (chunk.includes('data:')) {
-                      const dataContent = chunk.split('data:')[1]?.trim()
-                      if (dataContent && !dataContent.includes('event:init')) {
-                        try {
-                          const jsonData = JSON.parse(dataContent)
-                          if (jsonData.choices && jsonData.choices[0]?.delta?.content) {
-                            const content = jsonData.choices[0].delta.content
-                            fullResponse += content
-                            onUpdate?.(fullResponse)
-                            hasReceivedData = true
-                            buffer = ''
-                            continue
-                          }
-                        } catch (e) {
-                          // 如果不是JSON格式，直接使用文本内容
-                          if (!dataContent.includes('event:init') && !dataContent.includes('[DONE]')) {
-                            // 检查是否是连接建立消息
-                            if (dataContent === '连接已建立') {
-                              continue
-                            }
-                            fullResponse += dataContent
-                            onUpdate?.(fullResponse)
-                            hasReceivedData = true
-                            buffer = ''
-                            continue
-                          }
-                        }
-                      }
-                    }
+                    const lines = buffer.split('\n')
+                    buffer = lines.pop() || ''
 
-                    // 尝试解析为JSON对象
-                    try {
-                      const jsonData = JSON.parse(buffer)
-                      if (jsonData.content) {
-                        // 检查是否是连接建立消息
-                        if (jsonData.content === '连接已建立') {
-                          buffer = ''
-                          continue
-                        }
-                        fullResponse = jsonData.content
-                        onUpdate?.(fullResponse)
-                        hasReceivedData = true
-                        buffer = ''
-                        continue
-                      }
-                    } catch (e) {
-                      // 如果不是JSON对象，继续尝试其他格式
-                    }
-
-                    // 尝试找到完整的JSON数组
-                    let startIndex = 0
-                    while (true) {
-                      const leftBracket = buffer.indexOf('[', startIndex)
-                      if (leftBracket === -1) break
-
-                      let rightBracket = -1
-                      let bracketCount = 1
-                      for (let i = leftBracket + 1; i < buffer.length; i++) {
-                        if (buffer[i] === '[') bracketCount++
-                        if (buffer[i] === ']') bracketCount--
-                        if (bracketCount === 0) {
-                          rightBracket = i
+                    for (const line of lines) {
+                      if (line.startsWith('data:')) {
+                        const data = line.slice(5).trim()
+                        if (data === '[DONE]') {
                           break
                         }
-                      }
 
-                      if (rightBracket === -1) break
-
-                      try {
-                        const jsonStr = buffer.substring(leftBracket, rightBracket + 1)
-                        const jsonArray = JSON.parse(jsonStr)
-                        
-                        for (const item of jsonArray) {
-                          if (item.data && typeof item.data === 'object' && item.data.choices) {
-                            const delta = item.data.choices[0]?.delta?.content || ''
-                            if (delta) {
-                              fullResponse += delta
-                              onUpdate?.(fullResponse)
-                              hasReceivedData = true
-                            }
-                          } else if (item.data && typeof item.data === 'string') {
-                            if (!item.data.startsWith('event:') && !item.data.includes('keep-alive')) {
-                              // 检查是否是连接建立消息
-                              if (item.data === '连接已建立') {
-                                continue
+                        try {
+                          // 处理嵌套的数据结构
+                          const parsedData = JSON.parse(data)
+                          if (Array.isArray(parsedData)) {
+                            for (const item of parsedData) {
+                              if (item.data && typeof item.data === 'object') {
+                                if (item.data.choices && item.data.choices[0]?.delta?.content) {
+                                  const content = item.data.choices[0].delta.content
+                                  fullResponse += content
+                                  onUpdate?.(fullResponse)
+                                  hasReceivedData = true
+                                  keepAliveCount = 0
+                                }
                               }
-                              fullResponse += item.data
+                            }
+                          } else if (parsedData.data && parsedData.data.choices) {
+                            const content = parsedData.data.choices[0]?.delta?.content
+                            if (content) {
+                              fullResponse += content
                               onUpdate?.(fullResponse)
                               hasReceivedData = true
+                              keepAliveCount = 0
                             }
                           }
+                        } catch (e) {
+                          console.warn('Failed to parse SSE data:', e)
                         }
-
-                        buffer = buffer.substring(rightBracket + 1)
-                        startIndex = 0
-                      } catch (error) {
-                        console.error('Failed to parse JSON array:', error)
-                        startIndex = leftBracket + 1
                       }
                     }
                   } catch (error) {
