@@ -1,6 +1,6 @@
-# KobeAI - 智能校园助手
+# IntelliFlow AI - 智能对话平台
 
-KobeAI 是一个基于人工智能的校园助手系统，旨在为学生和教师提供智能化的学习和工作支持。项目采用前后端分离架构，其中后端使用 Spring Boot 构建，前端则基于 Vue 3 + TypeScript + Vite 开发。
+IntelliFlow AI 是一个基于人工智能的智能对话平台，旨在为用户提供智能化的对话和工作支持。项目采用前后端分离架构，其中后端使用 Spring Boot 构建，前端则基于 Vue 3 + TypeScript + Vite 开发。
 
 ---
 
@@ -23,7 +23,7 @@ KobeAI 是一个基于人工智能的校园助手系统，旨在为学生和教�
 
 ## 项目描述
 
-KobeAI 项目旨在提供一套智能对话与实时通信系统，支持多种 AI 模型的对话功能以及文件管理、用户认证、主题切换等丰富特性。该系统采用前后端分离架构，易于维护与扩展。
+IntelliFlow AI 项目旨在提供一套智能对话与实时通信系统，支持多种 AI 模型的对话功能以及文件管理、用户认证、主题切换等丰富特性。该系统采用前后端分离架构，易于维护与扩展。
 
 ---
 
@@ -40,7 +40,7 @@ KobeAI 项目旨在提供一套智能对话与实时通信系统，支持多种 
 
 ## 技术栈
 
-### 前端 (kobeai_frontend)
+### 前端 (intelliflow_frontend)
 
 - Vue 3 + TypeScript
 - Vite (构建工具)
@@ -50,7 +50,7 @@ KobeAI 项目旨在提供一套智能对话与实时通信系统，支持多种 
 - Axios 请求处理
 - Markdown 渲染与 WebSocket 实时通信
 
-### 后端 (kobeai_backend)
+### 后端 (intelliflow_backend)
 
 - Spring Boot (后端框架)
 - Spring Security + JWT (认证和授权)
@@ -68,7 +68,7 @@ KobeAI 项目旨在提供一套智能对话与实时通信系统，支持多种 
 
 1. 进入前端目录：
    ```bash
-   cd kobeai_frontend
+   cd intelliflow_frontend
    ```
 2. 安装依赖：
    ```bash
@@ -88,7 +88,7 @@ KobeAI 项目旨在提供一套智能对话与实时通信系统，支持多种 
 
 1. 进入后端目录：
    ```bash
-   cd kobeai_backend
+   cd intelliflow_backend
    ```
 2. 使用 Maven 构建项目：
    ```bash
@@ -100,7 +100,7 @@ KobeAI 项目旨在提供一套智能对话与实时通信系统，支持多种 
    ```
    或者打包后运行 jar 包：
    ```bash
-   java -jar target/kobeai-backend.jar
+   java -jar target/intelliflow-backend.jar
    ```
 
 ---
@@ -108,12 +108,12 @@ KobeAI 项目旨在提供一套智能对话与实时通信系统，支持多种 
 ## 项目结构
 
 ```
-KobeAI/
-├── kobeai_backend/       # 后端 Spring Boot 项目
+IntelliFlow AI/
+├── intelliflow_backend/       # 后端 Spring Boot 项目
 │   ├── pom.xml
 │   ├── src/            # Java 源码与资源
 │   └── README.md       # 后端说明
-├── kobeai_frontend/      # 前端 Vue3 + TypeScript 项目
+├── intelliflow_frontend/      # 前端 Vue3 + TypeScript 项目
 │   ├── package.json
 │   ├── src/            # 前端源码
 │   ├── public/         # 静态资源

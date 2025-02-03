@@ -1,6 +1,6 @@
-# KobeAI 后端
+# IntelliFlow AI 后端
 
-KobeAI 后端服务基于 Spring Boot 构建，为智能校园助手系统提供 API、实时通信、用户认证和文件管理等功能。
+IntelliFlow AI 后端服务基于 Spring Boot 构建，为智能对话平台提供 API、实时通信、用户认证和文件管理等功能。
 
 ---
 
@@ -23,7 +23,7 @@ KobeAI 后端服务基于 Spring Boot 构建，为智能校园助手系统提供
 
 1. 进入项目目录：
    ```bash
-   cd kobeai_backend
+   cd intelliflow_backend
    ```
 2. 使用 Maven 清理并构建项目：
    ```bash
@@ -41,7 +41,7 @@ mvn spring-boot:run
 或者打包后运行 jar 包：
 
 ```bash
-java -jar target/kobeai-backend.jar
+java -jar target/intelliflow-backend.jar
 ```
 
 ---
@@ -63,7 +63,7 @@ java -jar target/kobeai-backend.jar
 ## 项目结构
 
 ```
-kobeai_backend/
+intelliflow_backend/
 ├── pom.xml                  # Maven 配置文件
 ├── src/                   # 后端源码和资源
 │   ├── main/
@@ -117,4 +117,4 @@ kobeai_backend/
 
 ## 致谢
 
-感谢所有对 KobeAI 后端做出贡献的开发者与开源社区的支持！
+感谢所有对 IntelliFlow AI 后端做出贡献的开发者与开源社区的支持！

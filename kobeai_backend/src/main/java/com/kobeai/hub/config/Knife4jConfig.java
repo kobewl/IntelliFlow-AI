@@ -46,8 +46,8 @@ public class Knife4jConfig {
         return SecurityContext.builder()
                 .securityReferences(defaultAuth())
                 .operationSelector(operation -> 
-                    !operation.requestMappingPattern().startsWith("/api/user/login") && 
-                    !operation.requestMappingPattern().startsWith("/api/user/register"))
+                    !operation.requestMappingPattern().startsWith("/api/auth/login") &&
+                    !operation.requestMappingPattern().startsWith("/api/auth/register"))
                 .build();
     }
 
