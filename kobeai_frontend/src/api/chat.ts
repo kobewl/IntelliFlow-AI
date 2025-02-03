@@ -100,7 +100,7 @@ function isIdentityQuestion(message: string): boolean {
 
 // 获取身份回复内容
 function getIdentityResponse(): string {
-  return '您好！我是KobeAI，一个智能助手。我可以帮助您解答问题、完成任务，让我们开始对话吧！'
+  return '您好！我是 IntelliFlow AI，一个智能助手。我可以帮助您解答问题、完成任务，让我们开始对话吧！'
 }
 
 // 统一的API实现

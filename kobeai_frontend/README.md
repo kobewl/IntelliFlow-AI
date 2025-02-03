@@ -1,6 +1,6 @@
-# KobeAI 前端
+# IntelliFlow AI 前端
 
-这是 KobeAI 项目的前端部分，使用 Vue 3 + TypeScript 以及 Vite 构建。项目提供了智能对话界面、实时通信与丰富的 UI 交互。
+这是 IntelliFlow AI 项目的前端部分，使用 Vue 3 + TypeScript 以及 Vite 构建。项目提供了智能对话界面、实时通信与丰富的 UI 交互。
 
 ---
 
@@ -65,7 +65,7 @@ npm run build
 ## 项目结构
 
 ```
-kobeai_frontend/
+intelliflow_frontend/
 ├── package.json               # 项目依赖与脚本
 ├── vite.config.ts             # vite 配置
 ├── src/                      # 项目源码目录
