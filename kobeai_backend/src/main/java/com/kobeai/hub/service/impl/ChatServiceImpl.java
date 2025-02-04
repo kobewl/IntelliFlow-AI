@@ -90,108 +90,59 @@ public class ChatServiceImpl implements ChatService {
 
     @Override
     @Transactional
-    public SseEmitter sendMessage(String message, Long conversationId, String authHeader) {
-        try {
-            log.info("开始处理发送消息请求");
-            String token = extractToken(authHeader);
-            String username = jwtUtil.getUsernameFromToken(token);
-            log.info("用户 {} 发送消息", username);
-
-            User user = userService.getUserProfile(token);
-            log.info("获取到用户信息: {}", user.getUsername());
-
-            // 获取会话
-            Conversation conversation = conversationRepository.findById(conversationId)
-                    .orElseThrow(() -> new RuntimeException("会话不存在"));
-
-            // 验证会话所属
-            if (!conversation.getUser().getId().equals(user.getId())) {
-                throw new RuntimeException("无权访问此会话");
-            }
-
-            log.info("使用会话: {}", conversation.getId());
-
-            // 保存用户消息
-            Message userMessage = new Message();
-            userMessage.setConversation(conversation);
-            userMessage.setContent(message);
-            userMessage.setRole(Message.Role.USER);
-            userMessage.setCreatedAt(LocalDateTime.now());
-            messageRepository.save(userMessage);
-
-            // 创建 SSE emitter
-            SseEmitter emitter = new SseEmitter();
-
-            // 创建 AI 消息
-            Message aiMessage = new Message();
-            aiMessage.setConversation(conversation);
-            aiMessage.setRole(Message.Role.ASSISTANT);
-            aiMessage.setCreatedAt(LocalDateTime.now());
-            aiMessage = messageRepository.save(aiMessage);
-
-            // 设置超时处理
-            final Message finalAiMessage = aiMessage;
-            emitter.onTimeout(() -> {
-                log.error("消息处理超时: {}", conversation.getId());
-                try {
-                    finalAiMessage.setContent("Error: Request timed out");
-                    messageRepository.save(finalAiMessage);
-                    log.info("已保存超时错误消息");
-                } catch (Exception e) {
-                    log.error("保存超时错误消息失败: {}", e.getMessage());
-                }
-            });
-
-            emitter.onError(ex -> {
-                log.error("消息流处理错误: {}, 会话ID: {}", ex.getMessage(), conversation.getId());
-                try {
-                    finalAiMessage.setContent("Error: " + ex.getMessage());
-                    messageRepository.save(finalAiMessage);
-                    log.info("已保存错误消息");
-                } catch (Exception e) {
-                    log.error("保存错误消息失败: {}", e.getMessage());
-                }
-            });
-
-            // 使用 DeepSeek 服务获取 AI 响应
-            try {
-                SseEmitter deepseekEmitter = deepseekService.sendMessage(message, aiMessage);
-                deepseekEmitter.onCompletion(() -> {
-                    try {
-                        emitter.complete();
-                    } catch (Exception e) {
-                        log.error("完成消息流失败: {}", e.getMessage());
-                    }
+    public SseEmitter sendMessage(Long conversationId, String content, User user) {
+        // 获取或创建会话
+        Conversation conversation = conversationRepository.findById(conversationId)
+                .orElseGet(() -> {
+                    Conversation newConversation = new Conversation();
+                    newConversation.setUser(user);
+                    newConversation.setCreatedAt(LocalDateTime.now());
+                    return conversationRepository.save(newConversation);
                 });
 
-                deepseekEmitter.onTimeout(() -> {
-                    try {
-                        emitter.complete();
-                    } catch (Exception e) {
-                        log.error("消息流超时处理失败: {}", e.getMessage());
-                    }
-                });
+        // 创建用户消息
+        Message userMessage = new Message();
+        userMessage.setConversationId(conversation.getId());
+        userMessage.setSenderId(user.getId());
+        userMessage.setRole(Message.Role.USER);
+        userMessage.setContent(content);
+        userMessage.setCreatedAt(LocalDateTime.now());
+        messageRepository.save(userMessage);
 
-                deepseekEmitter.onError((ex) -> {
-                    try {
-                        emitter.completeWithError(ex);
-                    } catch (Exception e) {
-                        log.error("消息流错误处理失败: {}", e.getMessage());
-                    }
-                });
+        // 创建AI回复消息
+        Message aiMessage = new Message();
+        aiMessage.setConversationId(conversation.getId());
+        aiMessage.setSenderId(-1L); // 使用 -1 作为 AI 消息的发送者ID
+        aiMessage.setRole(Message.Role.ASSISTANT);
+        aiMessage.setContent("");
+        aiMessage.setCreatedAt(LocalDateTime.now());
+        messageRepository.save(aiMessage);
 
-                return deepseekEmitter;
-            } catch (Exception e) {
-                log.error("调用 DeepSeek 服务失败: {}", e.getMessage());
-                emitter.completeWithError(e);
-                return emitter;
-            }
-        } catch (Exception e) {
-            log.error("发送消息处理失败: {}", e.getMessage(), e);
-            SseEmitter emitter = new SseEmitter();
-            emitter.completeWithError(e);
-            return emitter;
-        }
+        // 获取历史消息用于上下文
+        List<Message> historyMessages = messageRepository.findRecentMessages(conversation.getId(), 10);
+
+        // 调用AI服务生成回复
+        return deepseekService.sendMessage(content, aiMessage);
+    }
+
+    @Override
+    public List<Message> getMessages(Long conversationId, int limit) {
+        return messageRepository.findRecentMessages(conversationId, limit);
+    }
+
+    @Override
+    public List<Message> getMessagesBefore(Long conversationId, LocalDateTime timestamp, int limit) {
+        return messageRepository.findMessagesBefore(
+                conversationId, timestamp, PageRequest.of(0, limit));
+    }
+
+    @Override
+    @Transactional
+    public void deleteConversation(Long conversationId) {
+        // 先删除所有相关消息
+        messageRepository.deleteByConversationId(conversationId);
+        // 再删除会话
+        conversationRepository.deleteById(conversationId);
     }
 
     @Override
@@ -281,12 +232,11 @@ public class ChatServiceImpl implements ChatService {
 
             if (cursor == null) {
                 // 第一页
-                messages = messageRepository.findByConversationOrderByCreatedAtDesc(conversation, pageable);
+                messages = messageRepository.findMessages(conversation.getId(), pageable);
             } else {
                 // 使用游标分页
                 LocalDateTime cursorTime = LocalDateTime.parse(cursor);
-                messages = messageRepository.findByConversationAndCreatedAtBeforeOrderByCreatedAtDesc(
-                        conversation, cursorTime, pageable);
+                messages = messageRepository.findMessagesBefore(conversation.getId(), cursorTime, pageable);
             }
 
             // 检查是否有更多消息
@@ -351,7 +301,7 @@ public class ChatServiceImpl implements ChatService {
                     .orElseThrow(() -> new RuntimeException("会话不存在"));
 
             // 清空会话消息
-            messageRepository.deleteByConversation(conversation);
+            messageRepository.deleteByConversationId(conversation.getId());
 
             // 重置会话标题
             conversation.setTitle("新对话");
@@ -414,7 +364,7 @@ public class ChatServiceImpl implements ChatService {
 
             // 获取会话的消息列表
             Pageable pageable = PageRequest.of(0, 20);
-            List<Message> messages = messageRepository.findByConversationOrderByCreatedAtDesc(conversation, pageable);
+            List<Message> messages = messageRepository.findByConversation(conversation, pageable);
             conversation.setMessages(messages);
 
             return ApiResponse.success("获取成功", conversation);
@@ -449,7 +399,7 @@ public class ChatServiceImpl implements ChatService {
 
             // 获取会话的消息列表
             Pageable pageable = PageRequest.of(0, 20);
-            List<Message> messages = messageRepository.findByConversationOrderByCreatedAtDesc(conversation, pageable);
+            List<Message> messages = messageRepository.findByConversation(conversation, pageable);
             conversation.setMessages(messages);
 
             return ApiResponse.success("获取成功", conversation);

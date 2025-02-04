@@ -1,6 +1,6 @@
 # IntelliFlow AI - 智能对话平台
 
-IntelliFlow AI 是一个基于人工智能的智能对话平台，旨在为用户提供智能化的对话和工作支持。项目采用前后端分离架构，其中后端使用 Spring Boot 构建，前端则基于 Vue 3 + TypeScript + Vite 开发。
+IntelliFlow AI 是一个基于人工智能的智能对话平台，旨在为用户提供智能化的对话和服务支持。项目采用前后端分离架构，其中后端使用 Spring Boot 构建，前端则基于 Vue 3 + TypeScript + Vite 开发。
 
 ---
 
@@ -23,7 +23,7 @@ IntelliFlow AI 是一个基于人工智能的智能对话平台，旨在为用�
 
 ## 项目描述
 
-IntelliFlow AI 项目旨在提供一套智能对话与实时通信系统，支持多种 AI 模型的对话功能以及文件管理、用户认证、主题切换等丰富特性。该系统采用前后端分离架构，易于维护与扩展。
+IntelliFlow AI 项目旨在提供一套智能对话系统，支持多种 AI 模型的对话功能以及文件管理、用户认证、主题切换等丰富特性。该系统采用前后端分离架构，易于维护与扩展。
 
 ---
 
@@ -108,17 +108,17 @@ IntelliFlow AI 项目旨在提供一套智能对话与实时通信系统，支�
 ## 项目结构
 
 ```
-IntelliFlow AI/
-├── intelliflow_backend/       # 后端 Spring Boot 项目
+IntelliFlow/
+├── intelliflow_backend/    # 后端 Spring Boot 项目
 │   ├── pom.xml
-│   ├── src/            # Java 源码与资源
-│   └── README.md       # 后端说明
-├── intelliflow_frontend/      # 前端 Vue3 + TypeScript 项目
+│   ├── src/               # Java 源码与资源
+│   └── README.md          # 后端说明
+├── intelliflow_frontend/   # 前端 Vue3 + TypeScript 项目
 │   ├── package.json
-│   ├── src/            # 前端源码
-│   ├── public/         # 静态资源
-│   └── README.md       # 前端说明
-└── README.md           # 当前总项目概览
+│   ├── src/               # 前端源码
+│   ├── public/            # 静态资源
+│   └── README.md          # 前端说明
+└── README.md              # 当前总项目概览
 ```
 
 ---
@@ -152,13 +152,12 @@ IntelliFlow AI/
 
 ## 联系方式
 
-- **作者**：KobeWang
-- **邮箱**：[your-email@example.com](mailto:your-email@example.com)
+- **作者**：王梁
+- **邮箱**：[wl313018793@gmail.com](mailto:wl313018793@gmail.com)
 - **GitHub**：[kobewl](https://github.com/kobewl)
 
 ---
 
 ## 致谢
 
-感谢所有帮助改善本项目的开发者！  
-参考了 [The Ultimate Guide to Writing a Great README.md for Your Project](https://medium.com/@kc_clintone/the-ultimate-guide-to-writing-a-great-readme-md-for-your-project-3d49c2023357) 与 [How to Write a Good README File](https://www.freecodecamp.org/news/how-to-write-a-good-readme-file/) 等优秀资源。
+感谢所有帮助改善本项目的开发者！
