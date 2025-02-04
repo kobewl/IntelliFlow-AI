@@ -95,32 +95,168 @@ const currentPlan = ref('NORMAL')
 const router = useRouter()
 
 // 复制代码到剪贴板
-const copyCode = async (code: string) => {
+const copyToClipboard = async (code: string) => {
   try {
     await navigator.clipboard.writeText(code)
-    ElMessage.success('代码已复制到剪贴板')
+    ElMessage.success('代码已复制')
   } catch (err) {
+    console.error('Copy failed:', err)
     ElMessage.error('复制失败')
   }
 }
 
-// 格式化消息内容
+// 创建一个唯一的ID生成器
+const generateId = () => `_${Math.random().toString(36).substr(2, 9)}`
+
+// 在 script setup 部分添加 SQL 格式化函数
+const formatSql = (sql: string): string => {
+  return sql
+    .replace(/\s+/g, ' ')
+    .replace(/\s*([,()])\s*/g, '$1 ')
+    .replace(/\b(SELECT|FROM|WHERE|GROUP BY|HAVING|ORDER BY|LIMIT|INSERT INTO|VALUES|UPDATE|SET|DELETE FROM|JOIN|LEFT JOIN|RIGHT JOIN|INNER JOIN|OUTER JOIN|ON|AND|OR|UNION|ALL|AS)\b/gi, '\n$1')
+    .replace(/\(/g, '\n(')
+    .replace(/\)/g, ')\n')
+    .replace(/,/g, ',\n  ')
+    .split('\n')
+    .map(line => line.trim())
+    .filter(line => line)
+    .join('\n')
+    .trim()
+}
+
+// 修改 formatMessage 函数
 const formatMessage = (content: string): string => {
-  const md: MarkdownIt = new MarkdownIt({
-    highlight: (str: string, lang: string): string => {
-      if (lang && hljs.getLanguage(lang)) {
-        try {
-          const highlighted = hljs.highlight(str, { language: lang }).value
-          return `<pre data-language="${lang}"><code>${highlighted}</code><button class="copy-btn" onclick="copyCode(\`${str.replace(/`/g, '\\`')}\`)">复制代码</button></pre>`
-        } catch (err) {
-          console.error('Failed to highlight code:', err)
-        }
-      }
-      return `<pre><code>${md.utils.escapeHtml(str)}</code></pre>`
-    }
+  // 预处理特殊字符和换行
+  content = content
+    .replace(/\\n/g, '\n')
+    .replace(/\\\`/g, '`')
+    .replace(/\\\*/g, '*')
+    .replace(/\\\[/g, '[')
+    .replace(/\\\]/g, ']')
+    .replace(/\\\(/g, '(')
+    .replace(/\\\)/g, ')')
+    .replace(/\\\{/g, '{')
+    .replace(/\\\}/g, '}')
+    .replace(/\\\#/g, '#')
+    .replace(/\\\-/g, '-')
+    .replace(/\\\+/g, '+')
+    .replace(/\\\./g, '.')
+    .replace(/\\\!/g, '!')
+
+  // 处理 markdown 标题
+  content = content.replace(/^(#{1,6})\s+(.+)$/gm, (match, hashes, title) => {
+    return `${hashes} ${title.trim()}`
   })
 
-  return md.render(content)
+  // 处理代码块
+  content = content.replace(/```(\w+)?\s*\n([\s\S]*?)\n```/g, (match, lang, code) => {
+    if (lang?.toLowerCase() === 'sql') {
+      return match
+    }
+    return `\n${match}\n`
+  })
+
+  // 处理普通文本中的 SQL 语句
+  content = content.replace(/(?<!```sql\n)((?:INSERT|UPDATE|DELETE|SELECT|CREATE|DROP|ALTER)\s+[^;]+;)/gi, (match) => {
+    return `\n\`\`\`sql\n${match}\n\`\`\`\n`
+  })
+
+  const md = new MarkdownIt({
+    highlight: (str: string, lang: string): string => {
+      const uniqueId = generateId()
+      const escapedCode = str
+        .replace(/`/g, '\\`')
+        .replace(/\$/g, '\\$')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+
+      if (lang?.toLowerCase() === 'sql') {
+        try {
+          const formattedSql = formatSql(str)
+          const highlighted = hljs.highlight(formattedSql, { language: 'sql' }).value
+          const lines = highlighted.split('\n')
+          const numberedLines = lines.map((line, i) => 
+            `<span class="line"><span class="line-number">${i + 1}</span>${line}</span>`
+          ).join('\n')
+          
+          return `<div class="sql-block">
+            <div class="sql-header">
+              <span>sql</span>
+              <button class="copy-btn" @click="copyToClipboard('${escapedCode}')">复制</button>
+            </div>
+            <pre><code class="hljs sql" id="${uniqueId}">${numberedLines}</code></pre>
+          </div>`
+        } catch (err) {
+          console.error('SQL highlighting failed:', err)
+          return `<pre><code>${escapedCode}</code></pre>`
+        }
+      }
+      
+      // 处理其他语言的代码
+      try {
+        if (lang && hljs.getLanguage(lang)) {
+          const highlighted = hljs.highlight(str, { language: lang }).value
+          return `<pre><code class="hljs ${lang}">${highlighted}</code></pre>`
+        }
+      } catch (err) {
+        console.error('Code highlighting failed:', err)
+      }
+      
+      return `<pre><code>${escapedCode}</code></pre>`
+    },
+    html: true,
+    breaks: true,
+    linkify: true,
+    typographer: true
+  })
+
+  // 自定义渲染规则
+  md.renderer.rules.heading_open = (tokens, idx) => {
+    const token = tokens[idx]
+    const level = parseInt(token.tag.slice(1))
+    return `<${token.tag} class="markdown-heading level-${level}">`
+  }
+
+  md.renderer.rules.paragraph_open = () => '<p class="markdown-paragraph">'
+  
+  md.renderer.rules.fence = (tokens, idx, options, env, slf) => {
+    const token = tokens[idx]
+    const info = token.info ? md.utils.unescapeAll(token.info).trim() : ''
+    const lang = info ? info.split(/\s+/g)[0] : ''
+    
+    return options.highlight(token.content, lang, '')
+  }
+
+  // 渲染 markdown
+  let rendered = md.render(content)
+
+  // 后处理渲染结果
+  rendered = rendered
+    .replace(/\n/g, '<br>')
+    .replace(/<br><pre>/g, '<pre>')
+    .replace(/<\/pre><br>/g, '</pre>')
+    .replace(/```(\w+)?\s*<br>/g, '```$1\n')
+    .replace(/<br>```/g, '\n```')
+    .replace(/<p><br>/g, '<p>')
+    .replace(/<br><\/p>/g, '</p>')
+    .replace(/^\s*<br>/gm, '')
+    .replace(/<br>\s*$/gm, '')
+
+  return rendered
+}
+
+// 添加事件处理器
+const handleCodeCopy = (event: MouseEvent) => {
+  const target = event.target as HTMLElement
+  if (target.classList.contains('copy-btn')) {
+    const codeId = target.getAttribute('data-code')
+    if (codeId) {
+      const codeElement = document.getElementById(codeId)
+      if (codeElement) {
+        copyToClipboard(codeElement.textContent || '')
+      }
+    }
+  }
 }
 
 const props = defineProps<{
@@ -204,13 +340,14 @@ watch(() => props.messages, async (newMessages, oldMessages) => {
   }
 }, { deep: true })
 
-// 组件挂载时滚动到底部
+// 组件挂载时添加事件监听
 onMounted(async () => {
   await nextTick()
   if (containerRef.value) {
     containerRef.value.scrollTop = containerRef.value.scrollHeight
-    // 添加滚动事件监听
+    // 添加事件监听
     containerRef.value.addEventListener('scroll', handleScroll)
+    containerRef.value.addEventListener('click', handleCodeCopy, true)
   }
 })
 
@@ -218,6 +355,7 @@ onMounted(async () => {
 onUnmounted(() => {
   if (containerRef.value) {
     containerRef.value.removeEventListener('scroll', handleScroll)
+    containerRef.value.removeEventListener('click', handleCodeCopy, true)
   }
 })
 
@@ -268,37 +406,329 @@ export default {
 }
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
 .virtual-message-list {
   height: 100%;
   overflow-y: auto;
   padding: 20px;
-  background: linear-gradient(to bottom, var(--bg-gradient-start, #f0f2f5), var(--bg-gradient-end, #ffffff));
+  background: #ffffff;
   scroll-behavior: smooth;
-}
 
-.load-more {
-  text-align: center;
-  margin-bottom: 12px;
-}
+  &.dark {
+    background: #1a1b26;
+  }
 
-.message-item {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 16px;
-  opacity: 0;
-  transform: translateY(20px);
-  animation: messageIn 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
-  align-items: flex-start;
-  padding: 0 4px;
-}
+  .message-content {
+    max-width: 85%;
+    min-width: 100px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    position: relative;
+    padding: 0;
+    word-break: break-word;
+    flex-shrink: 1;
+    width: fit-content;
+  }
 
-.message-item.assistant {
-  flex-direction: row;
-}
+  .message-item {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 24px;
+    opacity: 0;
+    transform: translateY(20px);
+    animation: messageIn 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    align-items: flex-start;
+    padding: 0;
+    width: 100%;
+    
+    &.assistant {
+      flex-direction: row;
+      
+      .message-content {
+        margin-right: auto;
+        margin-left: 0;
+      }
+      
+      .message-text {
+        background: #ffffff;
+        color: #333333;
+        border: 1px solid #e5e7eb;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        
+        &:hover {
+          box-shadow: 0 4px 8px rgba(0, 0, 0, 0.08);
+        }
+      }
+    }
+    
+    &.user {
+      flex-direction: row-reverse;
+      
+      .message-content {
+        margin-left: auto;
+        margin-right: 0;
+        align-items: flex-end;
+      }
+      
+      .message-text {
+        background: #2563eb;
+        color: #ffffff;
+        border: none;
+        box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);
+        
+        &:hover {
+          box-shadow: 0 4px 8px rgba(37, 99, 235, 0.25);
+        }
+        
+        :deep(.sql-block) {
+          margin: 8px 0 4px 0 !important;
+        }
+      }
+      
+      .message-time {
+        text-align: right;
+        color: rgba(255, 255, 255, 0.7);
+      }
+    }
+  }
 
-.message-item.user {
-  flex-direction: row-reverse;
+  .message-text {
+    position: relative;
+    padding: 16px;
+    border-radius: 12px;
+    font-size: 14px;
+    line-height: 1.6;
+    transition: all 0.2s ease;
+    max-width: 100%;
+    background: #ffffff;
+    
+    :deep(.markdown-heading) {
+      font-weight: 600;
+      line-height: 1.25;
+      margin: 0;
+      padding: 0;
+      color: #333;
+      
+      &.level-1 {
+        font-size: 20px;
+        margin-bottom: 16px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid #e5e7eb;
+      }
+      
+      &.level-2 {
+        font-size: 18px;
+        margin: 16px 0 12px 0;
+      }
+      
+      &.level-3 {
+        font-size: 16px;
+        margin: 14px 0 10px 0;
+      }
+    }
+    
+    :deep(.markdown-paragraph) {
+      margin: 8px 0;
+      line-height: 1.6;
+      
+      &:first-child {
+        margin-top: 0;
+      }
+      
+      &:last-child {
+        margin-bottom: 0;
+      }
+    }
+    
+    :deep(pre) {
+      margin: 12px 0;
+      padding: 12px;
+      background: #f8f9fa;
+      border-radius: 6px;
+      overflow-x: auto;
+      font-family: 'JetBrains Mono', 'Fira Code', monospace;
+      font-size: 13px;
+      line-height: 1.5;
+      
+      code {
+        background: transparent;
+        padding: 0;
+        border-radius: 0;
+        color: inherit;
+      }
+    }
+    
+    :deep(code) {
+      font-family: 'JetBrains Mono', 'Fira Code', monospace;
+      font-size: 13px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: #f3f4f6;
+      color: #333;
+    }
+    
+    :deep(ul), :deep(ol) {
+      margin: 8px 0;
+      padding-left: 20px;
+      
+      li {
+        margin: 4px 0;
+        line-height: 1.6;
+      }
+    }
+    
+    :deep(blockquote) {
+      margin: 12px 0;
+      padding: 8px 16px;
+      border-left: 4px solid #e5e7eb;
+      background: #f8f9fa;
+      color: #666;
+      
+      p {
+        margin: 0;
+      }
+    }
+    
+    :deep(hr) {
+      margin: 16px 0;
+      border: none;
+      border-top: 1px solid #e5e7eb;
+    }
+    
+    :deep(table) {
+      width: 100%;
+      margin: 12px 0;
+      border-collapse: collapse;
+      
+      th, td {
+        padding: 8px 12px;
+        border: 1px solid #e5e7eb;
+        text-align: left;
+      }
+      
+      th {
+        background: #f8f9fa;
+        font-weight: 600;
+      }
+    }
+  }
+
+  .message-time {
+    font-size: 12px;
+    color: #6b7280;
+    margin-top: 4px;
+    opacity: 0.8;
+  }
+
+  .avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    overflow: hidden;
+    flex-shrink: 0;
+    
+    :deep(.el-avatar) {
+      width: 100% !important;
+      height: 100% !important;
+      background: #f3f4f6;
+      color: #6b7280;
+      font-size: 20px;
+      border: 1px solid #e5e7eb;
+      
+      .el-icon {
+        font-size: 20px;
+      }
+    }
+  }
+
+  .empty-message {
+    text-align: center;
+    color: var(--empty-text, #909399);
+    padding: 10px 0;
+    font-size: 12px;
+  }
+
+  .typing-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 8px 12px;
+    background: rgba(var(--el-color-primary-rgb), 0.1);
+    border-radius: 12px;
+    margin: 4px 0;
+  }
+
+  .typing-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--el-color-primary);
+    animation: typingAnimation 1.4s infinite;
+    
+    &:nth-child(2) {
+      animation-delay: 0.2s;
+    }
+    
+    &:nth-child(3) {
+      animation-delay: 0.4s;
+    }
+  }
+
+  @keyframes typingAnimation {
+    0%, 60%, 100% {
+      transform: translateY(0);
+    }
+    30% {
+      transform: translateY(-4px);
+    }
+  }
+
+  .user-info {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .upgrade-btn {
+    font-size: 12px;
+    padding: 4px 8px;
+    height: 24px;
+    border-radius: 12px;
+    background: linear-gradient(45deg, var(--el-color-primary), var(--el-color-primary-light-3));
+    border: none;
+    color: white;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    white-space: nowrap;
+    
+    &:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 2px 8px rgba(var(--el-color-primary-rgb), 0.3);
+    }
+  }
+
+  @media (max-width: 768px) {
+    .virtual-message-list {
+      padding: 16px;
+    }
+    
+    .message-content {
+      max-width: 90%;
+      min-width: 60px;
+    }
+    
+    .message-text {
+      padding: 10px 14px;
+      font-size: 14px;
+    }
+    
+    .avatar {
+      width: 36px;
+      height: 36px;
+    }
+  }
 }
 
 @keyframes messageIn {
@@ -308,255 +738,181 @@ export default {
   }
 }
 
-.avatar {
-  flex-shrink: 0;
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-top: 4px;
-}
-
-.message-content {
-  max-width: 85%;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  position: relative;
-  padding: 4px;
-  word-break: break-word;
-}
-
-.message-item.user .message-content {
-  align-items: flex-end;
-}
-
-.message-text {
-  position: relative;
-  padding: 10px 14px;
-  border-radius: 12px;
-  font-size: 14px;
-  line-height: 1.4;
-  word-break: break-word;
-  transition: all 0.2s ease;
-  overflow-wrap: break-word;
-  white-space: pre-wrap;
-}
-
-.message-item.assistant .message-text {
-  background: var(--assistant-bg, #ffffff);
-  color: var(--assistant-text, #333);
-  border-top-left-radius: 2px;
-  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06);
-  margin-right: auto;
-  width: 100%;
-}
-
-.message-item.user .message-text {
-  background: var(--el-color-primary);
-  color: #ffffff;
-  border-top-right-radius: 2px;
-  box-shadow: 0 1px 6px rgba(var(--el-color-primary-rgb), 0.15);
-  margin-left: auto;
-  width: 100%;
-}
-
-.message-item.assistant .message-text::before,
-.message-item.user .message-text::before {
-  content: '';
-  position: absolute;
-  top: 14px;
-  width: 8px;
-  height: 8px;
-  transform: rotate(45deg);
-  z-index: 1;
-}
-
-.message-item.assistant .message-text::before {
-  left: -4px;
-  background: var(--assistant-bg, #ffffff);
-}
-
-.message-item.user .message-text::before {
-  right: -4px;
-  background: var(--el-color-primary);
-}
-
-.message-time {
-  font-size: 11px;
-  color: var(--time-color, #999);
-  margin: 1px 6px;
-  opacity: 0.7;
-}
-
-.message-item.user .message-time {
-  text-align: right;
-}
-
-.avatar :deep(.el-avatar) {
-  width: 100% !important;
-  height: 100% !important;
-  font-size: 20px;
-}
-
-.avatar :deep(.el-icon) {
-  font-size: 20px;
-}
-
-.message-text :deep(ol),
-.message-text :deep(ul) {
-  margin: 4px 0;
-  padding-left: 1.5em;
-  list-style-position: outside;
-}
-
-.message-text :deep(li) {
-  margin: 2px 0;
-  line-height: 1.4;
-  display: list-item;
-  list-style-position: outside;
-  padding-left: 0.5em;
-}
-
-.message-text :deep(li > p) {
-  margin: 0;
-  display: inline;
-}
-
-.message-text :deep(ol) {
-  list-style: decimal;
-  margin-left: 0;
-}
-
-.message-text :deep(ul) {
-  list-style: disc;
-  margin-left: 0;
-}
-
-.message-text :deep(li)::marker {
-  margin-right: 0.2em;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  color: inherit;
-}
-
-@media (max-width: 768px) {
+// 深色模式
+:deep([data-theme="dark"]) {
   .virtual-message-list {
-    padding: 16px;
+    background: #1a1b26;
   }
   
   .message-item {
-    gap: 8px;
-    margin-bottom: 16px;
+    &.assistant .message-text {
+      background: #24283b;
+      border-color: #2f3241;
+      color: #c0caf5;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+      
+      &:hover {
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+      }
+    }
+    
+    &.user .message-text {
+      background: #7aa2f7;
+      color: #ffffff;
+      box-shadow: 0 2px 4px rgba(122, 162, 247, 0.3);
+      
+      &:hover {
+        box-shadow: 0 4px 8px rgba(122, 162, 247, 0.4);
+      }
+    }
   }
   
-  .avatar {
-    width: 36px;
-    height: 36px;
+  .message-time {
+    color: #565f89;
   }
   
-  .avatar :deep(.el-icon) {
-    font-size: 18px;
-  }
-
-  .message-content {
-    max-width: 90%;
-  }
-  
-  .message-text {
-    padding: 8px 12px;
-    font-size: 14px;
-  }
-
-  .message-text :deep(pre) {
-    padding: 10px;
-    font-size: 12px;
-  }
-  
-  .message-text :deep(ol),
-  .message-text :deep(ul) {
-    padding-left: 1.2em;
-  }
-  
-  .message-text :deep(li) {
-    padding-left: 0.3em;
+  .avatar :deep(.el-avatar) {
+    background: #24283b;
+    border-color: #2f3241;
+    color: #7982a9;
   }
 }
 
-.empty-message {
-  text-align: center;
-  color: var(--empty-text, #909399);
-  padding: 10px 0;
-  font-size: 12px;
-}
-
-.typing-indicator {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 8px 12px;
-  background: rgba(var(--el-color-primary-rgb), 0.1);
-  border-radius: 12px;
-  margin: 4px 0;
-}
-
-.typing-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--el-color-primary);
-  animation: typingAnimation 1.4s infinite;
-}
-
-.typing-dot:nth-child(2) {
-  animation-delay: 0.2s;
-}
-
-.typing-dot:nth-child(3) {
-  animation-delay: 0.4s;
-}
-
-@keyframes typingAnimation {
-  0%, 60%, 100% {
-    transform: translateY(0);
-  }
-  30% {
-    transform: translateY(-4px);
-  }
-}
-
-.user-info {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.upgrade-btn {
-  font-size: 12px;
-  padding: 4px 8px;
-  height: 24px;
-  border-radius: 12px;
-  background: linear-gradient(45deg, var(--el-color-primary), var(--el-color-primary-light-3));
+:deep(.sql-block) {
+  margin: 12px 0 !important;
+  border-radius: 6px !important;
+  overflow: hidden;
+  background: #1a1b26;
   border: none;
-  color: white;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  white-space: nowrap;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2);
+  width: 100%;
+  
+  .sql-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 12px;
+    background: #24283b;
+    border-bottom: 1px solid #2f3241;
+    
+    span {
+      font-size: 12px;
+      font-weight: normal;
+      color: #7982a9;
+      text-transform: lowercase;
+      opacity: 0.8;
+    }
+    
+    .copy-btn {
+      padding: 3px 10px;
+      font-size: 12px;
+      border: 1px solid #2f3241;
+      border-radius: 3px;
+      background: transparent;
+      color: #7982a9;
+      cursor: pointer;
+      transition: all 0.2s;
+      
+      &:hover {
+        background: #2f3241;
+        color: #c0caf5;
+      }
+    }
+  }
+  
+  pre {
+    margin: 0 !important;
+    padding: 12px !important;
+    background: #1a1b26 !important;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace !important;
+    font-size: 13px !important;
+    line-height: 1.5 !important;
+    overflow-x: auto;
+    
+    code {
+      .line {
+        display: block;
+        padding-left: 2.5em;
+        position: relative;
+        white-space: pre;
+        
+        .line-number {
+          position: absolute;
+          left: 0;
+          width: 2em;
+          text-align: right;
+          padding-right: 0.5em;
+          color: #565f89;
+          opacity: 0.5;
+          user-select: none;
+        }
+        
+        &:hover {
+          background: #1e202e;
+        }
+      }
+      
+      &.hljs {
+        background: transparent !important;
+        padding: 0 !important;
+        color: #a9b1d6;
+        
+        .hljs-keyword {
+          color: #bb9af7;
+          font-weight: normal;
+        }
+        
+        .hljs-string {
+          color: #9ece6a;
+        }
+        
+        .hljs-number {
+          color: #ff9e64;
+        }
+        
+        .hljs-comment {
+          color: #565f89;
+          font-style: italic;
+        }
+        
+        .hljs-operator {
+          color: #89ddff;
+        }
+      }
+    }
+  }
 }
 
-.upgrade-btn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(var(--el-color-primary-rgb), 0.3);
-}
-
-@media (max-width: 768px) {
-  .upgrade-btn {
-    padding: 2px 6px;
-    font-size: 11px;
+// 深色模式适配
+:deep([data-theme="dark"]) {
+  .message-text {
+    background: #24283b;
+    color: #c0caf5;
+    
+    :deep(.markdown-heading) {
+      color: #c0caf5;
+      
+      &.level-1 {
+        border-bottom-color: #2f3241;
+      }
+    }
+    
+    :deep(.markdown-paragraph) {
+      color: #a9b1d6;
+    }
+    
+    :deep(pre) {
+      background: #1a1b26;
+      
+      code {
+        color: #a9b1d6;
+      }
+    }
+    
+    :deep(code) {
+      background: #1a1b26;
+      color: #a9b1d6;
+    }
   }
 }
 </style> 
