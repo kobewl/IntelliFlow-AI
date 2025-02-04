@@ -2,27 +2,23 @@ package com.kobeai.hub.service.impl;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kobeai.hub.model.Message;
+import com.kobeai.hub.model.PromptTemplate;
 import com.kobeai.hub.repository.MessageRepository;
 import com.kobeai.hub.service.DeepseekService;
+import com.kobeai.hub.service.PromptOptimizationService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
+import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -48,6 +44,9 @@ public class DeepseekServiceImpl implements DeepseekService {
     private final ObjectMapper objectMapper;
     private final ExecutorService executorService;
     private final MessageRepository messageRepository;
+
+    @Autowired
+    private PromptOptimizationService promptOptimizationService;
 
     public DeepseekServiceImpl(MessageRepository messageRepository) {
         this.objectMapper = new ObjectMapper();
@@ -86,6 +85,21 @@ public class DeepseekServiceImpl implements DeepseekService {
                         .data("连接已建立")
                         .build());
 
+                // 使用 Prompt 优化引擎优化消息
+                PromptTemplate template = promptOptimizationService.findBestTemplate("chat", message);
+                Map<String, Object> variables = new HashMap<>();
+                variables.put("model", model);
+                variables.put("temperature", temperature);
+
+                String optimizedMessage = message;
+                if (template != null) {
+                    optimizedMessage = promptOptimizationService.optimizePrompt(message, template, variables);
+                    log.info("消息已优化，Token 减少: {}%",
+                            ((estimateOriginalTokens(message)
+                                    - promptOptimizationService.estimateTokens(optimizedMessage)) * 100.0 /
+                                    estimateOriginalTokens(message)));
+                }
+
                 // 准备请求体
                 Map<String, Object> requestBody = new HashMap<>();
                 requestBody.put("model", model);
@@ -98,7 +112,7 @@ public class DeepseekServiceImpl implements DeepseekService {
 
                 Map<String, String> userMessage = new HashMap<>();
                 userMessage.put("role", "user");
-                userMessage.put("content", message);
+                userMessage.put("content", optimizedMessage);
                 messages.add(userMessage);
 
                 requestBody.put("messages", messages);
@@ -119,119 +133,131 @@ public class DeepseekServiceImpl implements DeepseekService {
 
                 String requestBodyJson = objectMapper.writeValueAsString(requestBody);
                 log.info("发送请求体: {}", requestBodyJson);
+
                 try (OutputStream os = conn.getOutputStream()) {
                     byte[] input = requestBodyJson.getBytes(StandardCharsets.UTF_8);
                     os.write(input, 0, input.length);
                 }
 
-                log.info("请求已发送，等待响应");
                 int responseCode = conn.getResponseCode();
-                log.info("收到响应状态码: {}", responseCode);
+                log.info("API响应状态码: {}", responseCode);
 
-                if (responseCode == HttpURLConnection.HTTP_OK) {
+                if (responseCode == 200) {
                     try (BufferedReader reader = new BufferedReader(
                             new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8))) {
-                        String line;
                         StringBuilder contentBuilder = new StringBuilder();
+                        String line;
+
                         while ((line = reader.readLine()) != null) {
-                            log.debug("收到响应行: {}", line);
-                            if (line.startsWith("data: ")) {
-                                String data = line.substring(6);
-                                if ("[DONE]".equals(data)) {
-                                    log.info("收到完成标记");
-                                    String finalContent = contentBuilder.toString();
-                                    // 保存完整的 AI 响应到数据库
-                                    aiMessage.setContent(finalContent);
-                                    messageRepository.save(aiMessage);
-                                    log.info("AI 响应已保存到数据库");
+                            if (line.isEmpty())
+                                continue;
 
-                                    emitter.send(SseEmitter.event()
-                                            .name("done")
-                                            .data(finalContent)
-                                            .build());
-                                    break;
-                                }
+                            if (line.equals("data: [DONE]")) {
+                                String finalContent = contentBuilder.toString();
+                                // 保存AI回复到数据库
+                                aiMessage.setContent(finalContent);
+                                messageRepository.save(aiMessage);
+                                log.info("AI 响应已保存到数据库");
 
-                                try {
-                                    Map<String, Object> response = objectMapper.readValue(data, Map.class);
-                                    if (response.containsKey("choices")) {
+                                emitter.send(SseEmitter.event()
+                                        .name("done")
+                                        .data(finalContent)
+                                        .build());
+                                break;
+                            }
+
+                            String data = line.substring(6);
+                            try {
+                                Map<String, Object> response = objectMapper.readValue(data, Map.class);
+                                if (response.containsKey("choices")) {
+                                    @SuppressWarnings("unchecked")
+                                    List<Map<String, Object>> choices = (List<Map<String, Object>>) response
+                                            .get("choices");
+                                    if (!choices.isEmpty()) {
+                                        Map<String, Object> choice = choices.get(0);
                                         @SuppressWarnings("unchecked")
-                                        List<Map<String, Object>> choices = (List<Map<String, Object>>) response
-                                                .get("choices");
-                                        if (!choices.isEmpty()) {
-                                            Map<String, Object> choice = choices.get(0);
-                                            @SuppressWarnings("unchecked")
-                                            Map<String, String> delta = (Map<String, String>) choice.get("delta");
-                                            if (delta != null && delta.containsKey("content")) {
-                                                String content = delta.get("content");
-                                                contentBuilder.append(content);
-                                                log.debug("发送内容片段: {}", content);
-                                                Map<String, Object> deltaMap = new HashMap<>();
-                                                deltaMap.put("content", content);
+                                        Map<String, String> delta = (Map<String, String>) choice.get("delta");
+                                        if (delta != null && delta.containsKey("content")) {
+                                            String content = delta.get("content");
+                                            contentBuilder.append(content);
 
-                                                Map<String, Object> choiceMap = new HashMap<>();
-                                                choiceMap.put("delta", deltaMap);
+                                            Map<String, Object> deltaMap = new HashMap<>();
+                                            deltaMap.put("content", content);
 
-                                                Map<String, Object> responseMap = new HashMap<>();
-                                                responseMap.put("choices", Arrays.asList(choiceMap));
+                                            Map<String, Object> choiceMap = new HashMap<>();
+                                            choiceMap.put("delta", deltaMap);
 
-                                                emitter.send(SseEmitter.event()
-                                                        .name("message")
-                                                        .data(responseMap)
-                                                        .build());
-                                            }
+                                            Map<String, Object> responseMap = new HashMap<>();
+                                            responseMap.put("choices", Arrays.asList(choiceMap));
+
+                                            emitter.send(SseEmitter.event()
+                                                    .name("message")
+                                                    .data(responseMap)
+                                                    .build());
                                         }
                                     }
-                                } catch (Exception e) {
-                                    log.error("解析响应数据失败: {}", e.getMessage());
                                 }
+                            } catch (Exception e) {
+                                log.error("解析响应数据失败: {}", e.getMessage());
                             }
                         }
                     }
                 } else {
-                    try (BufferedReader reader = new BufferedReader(
-                            new InputStreamReader(conn.getErrorStream(), StandardCharsets.UTF_8))) {
-                        StringBuilder errorResponse = new StringBuilder();
-                        String line;
-                        while ((line = reader.readLine()) != null) {
-                            errorResponse.append(line);
-                        }
-                        String errorMessage = String.format("API请求失败，状态码: %d, 错误信息: %s",
-                                responseCode, errorResponse.toString());
-                        log.error(errorMessage);
-
-                        // 保存错误信息到数据库
-                        aiMessage.setContent("Error: " + errorMessage);
-                        messageRepository.save(aiMessage);
-
-                        emitter.send(SseEmitter.event()
-                                .name("error")
-                                .data(errorMessage)
-                                .build());
-                    }
+                    handleErrorResponse(conn, aiMessage, emitter);
                 }
 
                 log.info("消息处理完成");
                 emitter.complete();
             } catch (Exception e) {
-                log.error("消息处理过程中发生错误: {}", e.getMessage());
-                try {
-                    // 保存错误信息到数据库
-                    aiMessage.setContent("Error: " + e.getMessage());
-                    messageRepository.save(aiMessage);
-
-                    emitter.send(SseEmitter.event()
-                            .name("error")
-                            .data("发送消息失败: " + e.getMessage())
-                            .build());
-                    emitter.complete();
-                } catch (IOException ex) {
-                    log.error("发送错误事件失败: {}", ex.getMessage());
-                    emitter.completeWithError(ex);
-                }
+                handleException(e, aiMessage, emitter);
             }
         });
 
         return emitter;
+    }
+
+    private void handleErrorResponse(HttpURLConnection conn, Message aiMessage, SseEmitter emitter) {
+        try (BufferedReader reader = new BufferedReader(
+                new InputStreamReader(conn.getErrorStream(), StandardCharsets.UTF_8))) {
+            StringBuilder errorResponse = new StringBuilder();
+            String line;
+            while ((line = reader.readLine()) != null) {
+                errorResponse.append(line);
+            }
+            String errorMessage = String.format("API请求失败，状态码: %d, 错误信息: %s",
+                    conn.getResponseCode(), errorResponse.toString());
+            log.error(errorMessage);
+
+            aiMessage.setContent("Error: " + errorMessage);
+            messageRepository.save(aiMessage);
+
+            emitter.send(SseEmitter.event()
+                    .name("error")
+                    .data(errorMessage)
+                    .build());
+        } catch (IOException e) {
+            log.error("处理错误响应失败: {}", e.getMessage());
+        }
+    }
+
+    private void handleException(Exception e, Message aiMessage, SseEmitter emitter) {
+        log.error("消息处理过程中发生错误: {}", e.getMessage());
+        try {
+            aiMessage.setContent("Error: " + e.getMessage());
+            messageRepository.save(aiMessage);
+
+            emitter.send(SseEmitter.event()
+                    .name("error")
+                    .data("发送消息失败: " + e.getMessage())
+                    .build());
+            emitter.complete();
+        } catch (IOException ex) {
+            log.error("发送错误消息失败: {}", ex.getMessage());
+        }
+    }
+
+    private int estimateOriginalTokens(String message) {
+        // 简单估算，每个单词约等于1.3个token
+        return (int) (message.split("\\s+").length * 1.3);
     }
 }
