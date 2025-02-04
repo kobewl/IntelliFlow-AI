@@ -1,6 +1,5 @@
 package com.kobeai.hub.model;
 
-import com.fasterxml.jackson.annotation.JsonBackReference;
 import lombok.Data;
 import javax.persistence.*;
 import java.time.LocalDateTime;
@@ -13,21 +12,32 @@ public class Message {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne
-    @JoinColumn(name = "conversation_id", nullable = false)
-    @JsonBackReference
-    private Conversation conversation;
+    @Column(name = "conversation_id", nullable = false)
+    private Long conversationId;
+
+    @Column(name = "sender_id")
+    private Long senderId;
 
     @Enumerated(EnumType.STRING)
+    @Column(name = "role", nullable = false)
     private Role role;
 
-    @Column(columnDefinition = "TEXT")
+    @Column(name = "content", columnDefinition = "TEXT")
     private String content;
 
+    @Column(name = "created_at")
     private LocalDateTime createdAt;
 
+    @PrePersist
+    protected void onCreate() {
+        createdAt = LocalDateTime.now();
+    }
+
+    /**
+     * 消息角色枚举
+     */
     public enum Role {
-        USER,
-        ASSISTANT
+        USER, // 用户消息
+        ASSISTANT // AI助手消息
     }
 }

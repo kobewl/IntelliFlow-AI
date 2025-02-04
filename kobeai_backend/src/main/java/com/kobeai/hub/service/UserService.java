@@ -1,8 +1,10 @@
 package com.kobeai.hub.service;
 
-import com.kobeai.hub.model.User;
+import com.kobeai.hub.dto.UserDTO;
 import com.kobeai.hub.dto.request.RegisterRequest;
+import com.kobeai.hub.dto.request.UserUpdateRequest;
 import com.kobeai.hub.dto.response.ApiResponse;
+import com.kobeai.hub.model.User;
 import com.kobeai.hub.model.User.UserRole;
 
 public interface UserService {
@@ -27,8 +29,13 @@ public interface UserService {
     ApiResponse<?> updateAvatar(Long userId, String avatarUrl);
 
     // 更新用户信息
-    ApiResponse<?> updateProfile(User user);
+    ApiResponse<?> updateProfile(User updatedUser);
 
     // 修改密码
     ApiResponse<?> changePassword(Long userId, String currentPassword, String newPassword);
+
+    // 新添加的方法
+    UserDTO findById(Long id);
+
+    void updateUser(Long id, UserUpdateRequest request);
 }
