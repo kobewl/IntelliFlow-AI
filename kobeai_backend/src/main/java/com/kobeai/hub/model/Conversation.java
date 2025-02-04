@@ -32,7 +32,8 @@ public class Conversation {
     @Column(nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 
-    @OneToMany(mappedBy = "conversation", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
+    @JoinColumn(name = "conversation_id")
     @JsonManagedReference
     private List<Message> messages = new ArrayList<>();
 }

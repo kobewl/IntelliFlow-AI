@@ -56,7 +56,7 @@ const md = new MarkdownIt({
         return `<div class="code-block-wrapper ${lang}">
                   <div class="code-block-header">
                     <span class="code-lang">${lang}</span>
-                    </div>
+                  </div>
                   <pre class="line-numbers"><code class="language-${lang}">${code}</code></pre>
                 </div>`
       } catch (err) {
@@ -66,6 +66,15 @@ const md = new MarkdownIt({
     // 如果没有指定语言或者发生错误，返回未格式化的代码
     return `<pre class="line-numbers"><code>${md.utils.escapeHtml(str)}</code></pre>`
   }
+})
+
+// 配置额外的 markdown-it 选项
+md.configure({
+  breaks: true,      // 转换换行符为 <br>
+  linkify: true,     // 自动转换URL为链接
+  html: true,        // 允许HTML标签
+  typographer: true, // 启用一些语言中性的替换和引号美化
+  quotes: '""'''     // 设置引号样式
 })
 
 const renderedContent = ref('')
@@ -90,17 +99,20 @@ export default {
 </script>
 
 <style>
+/* 基础样式 */
 .markdown-body {
   box-sizing: border-box;
   min-width: 200px;
-  max-width: 980px;
+  max-width: none;
   margin: 0;
   padding: 0;
   background: transparent;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
   font-size: 14px;
-  line-height: 1.5;
+  line-height: 1.4;
   color: inherit;
+  word-break: break-word;
+  white-space: pre-wrap;
 }
 
 /* 标题样式 */
@@ -110,37 +122,67 @@ export default {
 .markdown-body h4,
 .markdown-body h5,
 .markdown-body h6 {
-  margin: 0.5em 0 0.25em;
+  margin: 8px 0 4px;
   font-weight: 600;
   line-height: 1.3;
   letter-spacing: -0.01em;
 }
 
-.markdown-body h1 { font-size: 1.75em; }
-.markdown-body h2 { font-size: 1.5em; }
-.markdown-body h3 { font-size: 1.25em; }
+.markdown-body h1 { font-size: 1.5em; }
+.markdown-body h2 { font-size: 1.3em; }
+.markdown-body h3 { font-size: 1.2em; }
 .markdown-body h4 { font-size: 1.1em; }
 .markdown-body h5, .markdown-body h6 { font-size: 1em; }
 
 /* 段落和列表样式 */
 .markdown-body p {
-  margin: 0.25em 0;
-  line-height: 1.5;
+  margin: 4px 0;
+  line-height: 1.4;
 }
 
-.markdown-body ul,
-.markdown-body ol {
-  margin: 0.25em 0;
+/* 列表样式 */
+.markdown-body ol,
+.markdown-body ul {
+  margin: 4px 0;
   padding-left: 1.5em;
+  list-style-position: inside;
+}
+
+.markdown-body ol {
+  list-style: decimal;
+  margin-left: 0;
+}
+
+.markdown-body ul {
+  list-style: disc;
+  margin-left: 0;
 }
 
 .markdown-body li {
-  margin: 0.125em 0;
-  line-height: 1.5;
+  margin: 2px 0;
+  line-height: 1.6;
+  text-indent: -1.5em;
+  padding-left: 1.5em;
 }
 
 .markdown-body li > p {
   margin: 0;
+  display: inline-block;
+  text-indent: 0;
+}
+
+.markdown-body li::marker {
+  margin-right: 0.5em;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  color: inherit;
+}
+
+/* 嵌套列表的缩进 */
+.markdown-body li ol,
+.markdown-body li ul {
+  margin-top: 2px;
+  margin-bottom: 2px;
+  padding-left: 1.2em;
 }
 
 /* 链接样式 */
@@ -158,15 +200,32 @@ export default {
 
 /* 代码块样式 */
 .code-block-wrapper {
-  margin: 1em 0;
-  border-radius: 8px;
+  margin: 6px 0;
+  border-radius: 6px;
   overflow: hidden;
   background: var(--prism-background, #2d2d2d);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  max-width: 100%;
+}
+
+.code-block-wrapper pre {
+  margin: 0;
+  padding: 12px;
+  overflow-x: auto;
+  white-space: pre;
+}
+
+.code-block-wrapper code {
+  display: inline-block;
+  min-width: 100%;
+  font-family: 'JetBrains Mono', Consolas, Monaco, 'Andale Mono', 'Ubuntu Mono', monospace;
+  font-size: 13px;
+  line-height: 1.4;
+  tab-size: 2;
 }
 
 .code-block-header {
-  padding: 0.5em 1em;
+  padding: 4px 8px;
   background: var(--prism-header-background, #21252b);
   border-bottom: 1px solid var(--prism-border-color);
   display: flex;
@@ -328,11 +387,11 @@ div.code-toolbar > .toolbar > .toolbar-item > button:hover {
 
 /* 引用块样式 */
 .markdown-body blockquote {
-  margin: 0.5em 0;
-  padding: 0.5em 1em;
-  border-left: 4px solid #0085FF;
+  margin: 6px 0;
+  padding: 4px 10px;
+  border-left: 3px solid #0085FF;
   background: rgba(0, 133, 255, 0.05);
-  border-radius: 4px;
+  border-radius: 2px;
 }
 
 .markdown-body blockquote p {
@@ -341,19 +400,17 @@ div.code-toolbar > .toolbar > .toolbar-item > button:hover {
 
 /* 表格样式 */
 .markdown-body table {
-  width: 100%;
-  margin: 0.5em 0;
-  border-collapse: separate;
+  margin: 6px 0;
+  border-collapse: collapse;
   border-spacing: 0;
-  border-radius: 8px;
-  overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  width: 100%;
 }
 
 .markdown-body th,
 .markdown-body td {
-  padding: 8px 12px;
+  padding: 6px 10px;
   border: 1px solid #eee;
+  text-align: left;
 }
 
 .markdown-body th {
@@ -433,12 +490,22 @@ div.code-toolbar > .toolbar > .toolbar-item > button:hover {
   }
 
   .markdown-body blockquote {
-    padding: 0.4em 0.8em;
+    padding: 3px 8px;
   }
 
   .markdown-body th,
   .markdown-body td {
-    padding: 6px 8px;
+    padding: 4px 8px;
+  }
+  
+  .markdown-body ul,
+  .markdown-body ol {
+    padding-left: 1em;
+  }
+  
+  .markdown-body li {
+    text-indent: -1.2em;
+    padding-left: 1.2em;
   }
 }
 

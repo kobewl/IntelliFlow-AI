@@ -2,7 +2,9 @@ package com.kobeai.hub.controller;
 
 import com.kobeai.hub.dto.request.ChatRequest;
 import com.kobeai.hub.dto.response.ApiResponse;
+import com.kobeai.hub.model.User;
 import com.kobeai.hub.service.ChatService;
+import com.kobeai.hub.service.UserService;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import io.swagger.annotations.ApiParam;
@@ -19,6 +21,7 @@ import lombok.extern.slf4j.Slf4j;
 public class ChatController {
 
     private final ChatService chatService;
+    private final UserService userService;
 
     @GetMapping("/conversations")
     @ApiOperation(value = "获取所有会话")
@@ -93,7 +96,10 @@ public class ChatController {
                 request.getConversationId(),
                 authHeader.substring(0, Math.min(authHeader.length(), 20)) + "...");
         try {
-            SseEmitter emitter = chatService.sendMessage(request.getMessage(), request.getConversationId(), authHeader);
+            // 获取当前用户
+            User user = userService.getUserProfile(authHeader);
+            // 调用服务方法，注意参数顺序：conversationId, content, user
+            SseEmitter emitter = chatService.sendMessage(request.getConversationId(), request.getMessage(), user);
             log.info("消息发送成功，返回SSE emitter");
             return emitter;
         } catch (Exception e) {

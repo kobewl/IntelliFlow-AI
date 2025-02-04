@@ -322,11 +322,13 @@ export default {
 }
 
 .message-content {
-  max-width: 60%;
+  max-width: 85%;
   display: flex;
   flex-direction: column;
   gap: 2px;
   position: relative;
+  padding: 4px;
+  word-break: break-word;
 }
 
 .message-item.user .message-content {
@@ -335,12 +337,14 @@ export default {
 
 .message-text {
   position: relative;
-  padding: 8px 12px;
+  padding: 10px 14px;
   border-radius: 12px;
   font-size: 14px;
   line-height: 1.4;
   word-break: break-word;
   transition: all 0.2s ease;
+  overflow-wrap: break-word;
+  white-space: pre-wrap;
 }
 
 .message-item.assistant .message-text {
@@ -349,6 +353,7 @@ export default {
   border-top-left-radius: 2px;
   box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06);
   margin-right: auto;
+  width: 100%;
 }
 
 .message-item.user .message-text {
@@ -357,6 +362,7 @@ export default {
   border-top-right-radius: 2px;
   box-shadow: 0 1px 6px rgba(var(--el-color-primary-rgb), 0.15);
   margin-left: auto;
+  width: 100%;
 }
 
 .message-item.assistant .message-text::before,
@@ -401,25 +407,40 @@ export default {
   font-size: 20px;
 }
 
-.message-text :deep(pre) {
-  margin: 8px 0;
-  padding: 16px;
-  padding-top: 32px;
-  border-radius: 8px;
-  background: #1e1e1e;
-  position: relative;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  overflow-x: auto;
+.message-text :deep(ol),
+.message-text :deep(ul) {
+  margin: 4px 0;
+  padding-left: 1.5em;
+  list-style-position: outside;
 }
 
-.message-text :deep(pre)::before {
-  content: attr(data-language);
-  position: absolute;
-  top: 4px;
-  left: 12px;
-  font-size: 12px;
-  color: #888;
-  text-transform: uppercase;
+.message-text :deep(li) {
+  margin: 2px 0;
+  line-height: 1.4;
+  display: list-item;
+  list-style-position: outside;
+  padding-left: 0.5em;
+}
+
+.message-text :deep(li > p) {
+  margin: 0;
+  display: inline;
+}
+
+.message-text :deep(ol) {
+  list-style: decimal;
+  margin-left: 0;
+}
+
+.message-text :deep(ul) {
+  list-style: disc;
+  margin-left: 0;
+}
+
+.message-text :deep(li)::marker {
+  margin-right: 0.2em;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  color: inherit;
 }
 
 @media (max-width: 768px) {
@@ -442,13 +463,26 @@ export default {
   }
 
   .message-content {
-    max-width: 85%;
+    max-width: 90%;
   }
   
   .message-text {
-    padding: 10px 14px;
+    padding: 8px 12px;
     font-size: 14px;
-    border-radius: 16px;
+  }
+
+  .message-text :deep(pre) {
+    padding: 10px;
+    font-size: 12px;
+  }
+  
+  .message-text :deep(ol),
+  .message-text :deep(ul) {
+    padding-left: 1.2em;
+  }
+  
+  .message-text :deep(li) {
+    padding-left: 0.3em;
   }
 }
 

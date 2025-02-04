@@ -1,7 +1,11 @@
 package com.kobeai.hub.service.impl;
 
+import com.kobeai.hub.dto.UserDTO;
 import com.kobeai.hub.dto.request.RegisterRequest;
+import com.kobeai.hub.dto.request.UserUpdateRequest;
 import com.kobeai.hub.dto.response.ApiResponse;
+import com.kobeai.hub.exception.ResourceNotFoundException;
+import com.kobeai.hub.mapper.UserMapper;
 import com.kobeai.hub.model.User;
 import com.kobeai.hub.model.User.UserRole;
 import com.kobeai.hub.repository.UserRepository;
@@ -15,6 +19,13 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
+
+import com.kobeai.hub.constant.RedisKeyConstant;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.beans.factory.annotation.Autowired;
 
 @Slf4j
 @Service
@@ -24,6 +35,9 @@ public class UserServiceImpl implements UserService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
+
+    @Autowired
+    private RedisTemplate<String, Object> redisTemplate;
 
     @Override
     public ApiResponse<?> login(String username, String password) {
@@ -36,6 +50,12 @@ public class UserServiceImpl implements UserService {
             }
 
             String token = jwtUtil.generateToken(user);
+
+            // 将用户信息存入Redis缓存
+            String redisKey = RedisKeyConstant.USER_INFO_KEY + user.getId();
+            UserDTO userDTO = UserMapper.INSTANCE.toDTO(user);
+            redisTemplate.opsForValue().set(redisKey, userDTO, RedisKeyConstant.USER_INFO_TTL, TimeUnit.SECONDS);
+
             Map<String, Object> result = new HashMap<>();
             result.put("token", token);
             result.put("user", user);
@@ -251,5 +271,39 @@ public class UserServiceImpl implements UserService {
             log.error("修改密码失败", e);
             return ApiResponse.error(e.getMessage());
         }
+    }
+
+    @Override
+    @Cacheable(value = "users", key = "#id")
+    public UserDTO findById(Long id) {
+        // 从Redis获取缓存
+        String redisKey = RedisKeyConstant.USER_INFO_KEY + id;
+        UserDTO cachedUser = (UserDTO) redisTemplate.opsForValue().get(redisKey);
+        if (cachedUser != null) {
+            return cachedUser;
+        }
+
+        // 缓存不存在，从数据库查询
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        UserDTO userDTO = UserMapper.INSTANCE.toDTO(user);
+
+        // 存入缓存
+        redisTemplate.opsForValue().set(redisKey, userDTO, RedisKeyConstant.USER_INFO_TTL, TimeUnit.SECONDS);
+        return userDTO;
+    }
+
+    @Override
+    @CacheEvict(value = "users", key = "#id")
+    public void updateUser(Long id, UserUpdateRequest request) {
+        // 更新用户信息
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        // ... update user logic ...
+        userRepository.save(user);
+
+        // 删除缓存
+        String redisKey = RedisKeyConstant.USER_INFO_KEY + id;
+        redisTemplate.delete(redisKey);
     }
 }
