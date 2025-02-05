@@ -33,6 +33,13 @@ public class User {
     @Column(columnDefinition = "VARCHAR(255) COMMENT '用户头像URL'")
     private String avatar;
 
+    @Column(columnDefinition = "VARCHAR(10) DEFAULT 'UNKNOWN' COMMENT '性别：MALE-男 FEMALE-女 UNKNOWN-未知'")
+    @Enumerated(EnumType.STRING)
+    private Gender gender = Gender.UNKNOWN;
+
+    @Column(columnDefinition = "TEXT COMMENT '个人简介'")
+    private String bio;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, columnDefinition = "VARCHAR(20) DEFAULT 'NORMAL' COMMENT '用户角色：NORMAL-普通用户 VIP-VIP会员 SVIP-SVIP会员 ADMIN-管理员'")
     private UserRole userRole = UserRole.NORMAL; // 默认为普通用户
@@ -55,6 +62,23 @@ public class User {
 
     @Column(nullable = false, columnDefinition = "TINYINT(1) DEFAULT 0 COMMENT '0-未删除 1-已删除'")
     private Integer isDeleted = 0; // 软删除标记：0-未删除 1-已删除
+
+    // 性别枚举
+    public enum Gender {
+        MALE("男"),
+        FEMALE("女"),
+        UNKNOWN("未知");
+
+        private final String description;
+
+        Gender(String description) {
+            this.description = description;
+        }
+
+        public String getDescription() {
+            return description;
+        }
+    }
 
     // 用户角色枚举
     public enum UserRole {

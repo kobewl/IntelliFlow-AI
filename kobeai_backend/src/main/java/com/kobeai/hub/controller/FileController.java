@@ -20,7 +20,6 @@ import java.util.Set;
 
 import static com.kobeai.hub.constant.FileConstant.COS_HOST;
 
-
 /**
  * 用户图片上传接口
  *
@@ -29,9 +28,8 @@ import static com.kobeai.hub.constant.FileConstant.COS_HOST;
 @RestController
 @RequestMapping("/file")
 @Slf4j
-@Api(tags = "用户图片上传接口")
+@Api(tags = "文件上传接口")
 public class FileController {
-
 
     private MinioClient minioClient;
 
@@ -81,7 +79,8 @@ public class FileController {
         String uniqueFileName = generateUniqueFileName() + fileExtension;
 
         InputStream inputStream = data.getInputStream();
-        minioClient.putObject(PutObjectArgs.builder().bucket(minioConfig.getBucketName()).object(uniqueFileName).stream(inputStream, data.getSize(), -1).contentType(data.getContentType()).build());
+        minioClient.putObject(PutObjectArgs.builder().bucket(minioConfig.getBucketName()).object(uniqueFileName)
+                .stream(inputStream, data.getSize(), -1).contentType(data.getContentType()).build());
 
         // 构建完整的 URL
         String baseUrl = COS_HOST;

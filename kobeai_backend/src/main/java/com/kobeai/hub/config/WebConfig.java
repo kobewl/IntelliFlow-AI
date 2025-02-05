@@ -1,5 +1,6 @@
 package com.kobeai.hub.config;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.MediaType;
@@ -11,13 +12,19 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.web.filter.CorsFilter;
 import org.springframework.web.servlet.config.annotation.AsyncSupportConfigurer;
 import org.springframework.web.servlet.config.annotation.ContentNegotiationConfigurer;
+import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 import java.util.Arrays;
 import java.util.List;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 
 @Configuration
 public class WebConfig implements WebMvcConfigurer {
+
+    @Value("${app.upload.dir:uploads}")
+    private String uploadDir;
 
     @Bean
     public CorsFilter corsFilter() {
@@ -67,5 +74,15 @@ public class WebConfig implements WebMvcConfigurer {
                 MediaType.APPLICATION_JSON,
                 MediaType.TEXT_EVENT_STREAM));
         converters.add(converter);
+    }
+
+    @Override
+    public void addResourceHandlers(ResourceHandlerRegistry registry) {
+        Path uploadPath = Paths.get(uploadDir).toAbsolutePath().normalize();
+
+        registry.addResourceHandler("/api/uploads/**")
+                .addResourceLocations("file:" + uploadPath.toString() + "/")
+                .setCachePeriod(3600) // 缓存一小时
+                .resourceChain(true);
     }
 }

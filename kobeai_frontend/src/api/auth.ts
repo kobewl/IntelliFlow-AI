@@ -290,6 +290,25 @@ export const authApi = {
       console.error('Failed to change password:', error)
       throw new Error(error.message || '修改密码失败')
     }
+  },
+
+  // 上传头像
+  async uploadAvatar(file: File, userId: number): Promise<ApiResponse<string>> {
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('userId', userId.toString())
+      
+      const response = await api.post<ApiResponse<string>>('/auth/avatar', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      })
+      return response.data
+    } catch (error: any) {
+      console.error('Failed to upload avatar:', error)
+      throw new Error(error.message || '上传头像失败')
+    }
   }
 }
 

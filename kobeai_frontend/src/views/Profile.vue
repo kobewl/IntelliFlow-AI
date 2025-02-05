@@ -20,26 +20,31 @@
         <div class="avatar-section">
           <el-avatar 
             :size="100"
-            :src="userForm.avatar"
+            :src="userForm.avatar || ''"
             @error="() => true"
           >
-            {{ authStore.user?.username?.[0]?.toUpperCase() }}
+            <el-icon><UserFilled /></el-icon>
           </el-avatar>
           <el-upload
             v-if="isEditing"
             class="avatar-uploader"
-            :action="`/api/auth/avatar`"
+            :action="`${import.meta.env.VITE_API_BASE_URL.replace('/api', '')}/api/file/upload`"
             :headers="{
               Authorization: `Bearer ${authStore.token}`
             }"
+            name="data"
             :show-file-list="false"
             :on-success="handleAvatarSuccess"
             :on-error="handleAvatarError"
             :before-upload="beforeAvatarUpload"
+            accept="image/jpeg,image/png"
           >
-            <el-button type="primary" class="upload-btn">
-              更换头像
-            </el-button>
+            <el-button type="primary" size="small">更换头像</el-button>
+            <template #tip>
+              <div class="el-upload__tip">
+                支持 jpg/png 格式，大小不超过 10MB
+              </div>
+            </template>
           </el-upload>
         </div>
 
@@ -55,28 +60,43 @@
           <el-input v-model="userForm.phone" />
         </el-form-item>
 
+        <el-form-item label="性别" prop="gender">
+          <el-select v-model="userForm.gender" placeholder="请选择性别">
+            <el-option label="男" :value="Gender.MALE" />
+            <el-option label="女" :value="Gender.FEMALE" />
+            <el-option label="未知" :value="Gender.UNKNOWN" />
+          </el-select>
+        </el-form-item>
+
         <el-form-item label="个人简介" prop="bio">
           <el-input
             v-model="userForm.bio"
             type="textarea"
-            :rows="3"
-            placeholder="介绍一下自己吧"
+            :rows="4"
+            placeholder="请输入个人简介"
           />
-        </el-form-item>
-
-        <el-form-item label="用户角色">
-          <el-tag :type="roleTagType" effect="dark">
-            {{ roleText }}
-          </el-tag>
         </el-form-item>
 
         <el-form-item label="注册时间">
           <span>{{ formatDate(userForm.createdAt) }}</span>
         </el-form-item>
 
-        <el-form-item v-if="isEditing">
-          <el-button type="primary" @click="handleSubmit">保存</el-button>
-          <el-button @click="cancelEdit">取消</el-button>
+        <el-form-item label="会员类型">
+          <el-tag :type="roleTagType">{{ roleText }}</el-tag>
+        </el-form-item>
+
+        <el-form-item v-if="isUserVIP || isUserSVIP" label="会员到期">
+          <span>{{ formatDate(userForm.membershipEndTime) }}</span>
+        </el-form-item>
+
+        <el-form-item>
+          <template v-if="isEditing">
+            <el-button type="primary" @click="handleSubmit">保存</el-button>
+            <el-button @click="cancelEdit">取消</el-button>
+          </template>
+          <template v-else>
+            <el-button type="primary" @click="isEditing = true">编辑资料</el-button>
+          </template>
         </el-form-item>
       </el-form>
     </el-card>
@@ -141,7 +161,7 @@
           </el-col>
           <el-col :span="8">
             <el-card shadow="hover" @click="router.push('/admin/users')">
-              <el-icon><User /></el-icon>
+              <el-icon><Avatar /></el-icon>
               <h3>用户管理</h3>
               <p>管理用户账号和权限设置</p>
             </el-card>
@@ -162,69 +182,90 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { useAuthStore } from '../store/auth'
+import { useAuthStore } from '../stores/auth'
+import { storeToRefs } from 'pinia'
 import { ElMessage } from 'element-plus'
 import dayjs from 'dayjs'
-import { ChatDotRound, User, Bell } from '@element-plus/icons-vue'
-import { authApi } from '../api/auth'
+import { ChatDotRound, Avatar, Bell, UserFilled } from '@element-plus/icons-vue'
+import type { FormInstance } from 'element-plus'
+import { UserRole, Gender, type User, isAdmin, isVIP, isSVIP } from '../types/user'
 
 const router = useRouter()
 const authStore = useAuthStore()
+const { user, isUserAdmin, isUserVIP, isUserSVIP } = storeToRefs(authStore)
+const formRef = ref<FormInstance>()
 const isEditing = ref(false)
-const formRef = ref()
 
-const userForm = ref({
+interface UserForm {
+  username: string;
+  email: string;
+  phone: string;
+  bio: string;
+  avatar: string;
+  gender: Gender;
+  createdAt: string;
+  membershipStartTime: string;
+  membershipEndTime: string;
+  userRole: UserRole;
+  id: number;
+}
+
+const userForm = ref<UserForm>({
   username: '',
   email: '',
   phone: '',
   bio: '',
   avatar: '',
+  gender: Gender.UNKNOWN,
   createdAt: '',
   membershipStartTime: '',
   membershipEndTime: '',
-  userRole: '',
+  userRole: UserRole.NORMAL,
   id: 0,
 })
 
 const rules = {
   username: [
     { required: true, message: '请输入用户名', trigger: 'blur' },
-    { min: 2, max: 20, message: '长度在 2 到 20 个字符', trigger: 'blur' }
+    { min: 2, max: 20, message: '长度在 2 到 20 个字符', trigger: 'blur' },
+    { pattern: /^[a-zA-Z0-9_\u4e00-\u9fa5]+$/, message: '用户名只能包含字母、数字、下划线和中文', trigger: 'blur' }
   ],
   email: [
+    { required: true, message: '请输入邮箱地址', trigger: 'blur' },
     { type: 'email', message: '请输入正确的邮箱地址', trigger: 'blur' }
   ],
   phone: [
+    { required: true, message: '请输入手机号码', trigger: 'blur' },
     { pattern: /^1[3-9]\d{9}$/, message: '请输入正确的手机号码', trigger: 'blur' }
+  ],
+  bio: [
+    { max: 500, message: '个人简介不能超过500个字符', trigger: 'blur' }
   ]
 }
 
-const isVIP = computed(() => authStore.user?.userRole === 'VIP')
-const isSVIP = computed(() => authStore.user?.userRole === 'SVIP')
-
 const roleText = computed(() => {
-  if (authStore.isAdmin) return '管理员'
-  if (isSVIP.value) return 'SVIP会员'
-  if (isVIP.value) return 'VIP会员'
+  if (isUserAdmin.value) return '管理员'
+  if (isUserSVIP.value) return 'SVIP会员'
+  if (isUserVIP.value) return 'VIP会员'
   return '普通用户'
 })
 
 const roleTagType = computed(() => {
-  if (authStore.isAdmin) return 'danger'
-  if (isSVIP.value) return 'success'
-  if (isVIP.value) return 'warning'
+  if (isUserAdmin.value) return 'danger'
+  if (isUserSVIP.value) return 'success'
+  if (isUserVIP.value) return 'warning'
   return 'info'
 })
 
 const membershipText = computed(() => {
-  if (isSVIP.value) return 'SVIP会员'
-  if (isVIP.value) return 'VIP会员'
+  if (isUserSVIP.value) return 'SVIP会员'
+  if (isUserVIP.value) return 'VIP会员'
   return '普通用户'
 })
 
 const membershipTagType = computed(() => {
-  if (isSVIP.value) return 'success'
-  if (isVIP.value) return 'warning'
+  if (isUserSVIP.value) return 'success'
+  if (isUserVIP.value) return 'warning'
   return 'info'
 })
 
@@ -233,35 +274,42 @@ const formatDate = (date: string) => {
 }
 
 const handleAvatarSuccess = (response: any) => {
-  if (response.code === 200) {
-    userForm.value.avatar = response.data.avatar
+  if (response) {
+    // 后端直接返回完整的URL
+    userForm.value.avatar = response
     ElMessage.success('头像上传成功')
     // 更新全局用户信息
-    authStore.updateUserInfo({
-      ...authStore.user,
-      avatar: response.data.avatar
-    })
+    if (user.value) {
+      authStore.updateProfile({
+        ...user.value,
+        avatar: response
+      })
+    }
   } else {
-    ElMessage.error(response.message || '头像上传失败')
+    ElMessage.error('头像上传失败')
   }
 }
 
 const handleAvatarError = (error: any) => {
-  console.error('Avatar upload error:', error)
-  ElMessage.error(error?.response?.data?.message || '头像上传失败')
+  console.error('Avatar upload failed:', error)
+  const errorMessage = error?.response?.data || error?.message || '头像上传失败，请稍后重试'
+  ElMessage.error(errorMessage)
 }
 
 const beforeAvatarUpload = (file: File) => {
-  const isJPG = file.type === 'image/jpeg' || file.type === 'image/png'
-  const isLt2M = file.size / 1024 / 1024 < 2
+  const isJPG = file.type === 'image/jpeg'
+  const isPNG = file.type === 'image/png'
+  const isLt10M = file.size / 1024 / 1024 < 10
 
-  if (!isJPG) {
-    ElMessage.error('头像只能是 JPG 或 PNG 格式!')
+  if (!isJPG && !isPNG) {
+    ElMessage.error('上传头像只能是 JPG/PNG 格式!')
+    return false
   }
-  if (!isLt2M) {
-    ElMessage.error('头像大小不能超过 2MB!')
+  if (!isLt10M) {
+    ElMessage.error('上传头像大小不能超过 10MB!')
+    return false
   }
-  return isJPG && isLt2M
+  return true
 }
 
 const handleSubmit = async () => {
@@ -270,65 +318,72 @@ const handleSubmit = async () => {
   try {
     await formRef.value.validate()
     
-    // 构建要提交的数据
     const submitData = {
+      id: userForm.value.id,
       username: userForm.value.username,
       email: userForm.value.email,
       phone: userForm.value.phone,
       bio: userForm.value.bio,
-      avatar: userForm.value.avatar
+      avatar: userForm.value.avatar,
+      gender: userForm.value.gender,
+      userRole: userForm.value.userRole
     }
-
-    const result = await authApi.updateProfile(submitData)
+    
+    const result = await authStore.updateProfile(submitData)
     if (result.code === 200) {
-      ElMessage.success('保存成功')
+      ElMessage.success('个人信息更新成功')
       isEditing.value = false
-      // 更新全局用户信息
-      authStore.updateUserInfo({
-        ...authStore.user,
-        ...submitData
-      })
+      // 更新本地表单数据
+      if (result.data) {
+        userForm.value = {
+          ...userForm.value,
+          ...result.data
+        }
+      }
     } else {
-      throw new Error(result.message || '保存失败')
+      throw new Error(result.message || '更新失败')
     }
   } catch (error: any) {
-    ElMessage.error(error.message || '保存失败')
+    console.error('Profile update error:', error)
+    ElMessage.error(error.message || '更新个人信息失败')
   }
 }
 
 const cancelEdit = () => {
   isEditing.value = false
   // 重置表单为当前用户信息
-  if (authStore.user) {
+  if (user.value) {
     userForm.value = {
-      username: authStore.user.username || '',
-      email: authStore.user.email || '',
-      phone: authStore.user.phone || '',
-      bio: authStore.user.bio || '',
-      avatar: authStore.user.avatar || '',
-      createdAt: authStore.user.createdAt || '',
-      membershipStartTime: authStore.user.membershipStartTime || '',
-      membershipEndTime: authStore.user.membershipEndTime || '',
-      userRole: authStore.user.userRole || '',
-      id: authStore.user.id || 0,
+      username: user.value.username || '',
+      email: user.value.email || '',
+      phone: user.value.phone || '',
+      bio: user.value.bio || '',
+      avatar: user.value.avatar || '',
+      gender: user.value.gender || Gender.UNKNOWN,
+      createdAt: user.value.createdAt || '',
+      membershipStartTime: user.value.membershipStartTime || '',
+      membershipEndTime: user.value.membershipEndTime || '',
+      userRole: user.value.userRole || UserRole.NORMAL,
+      id: user.value.id || 0,
     }
   }
 }
 
 onMounted(async () => {
   // 初始化表单数据
-  if (authStore.user) {
+  if (user.value) {
     userForm.value = {
-      username: authStore.user.username || '',
-      email: authStore.user.email || '',
-      phone: authStore.user.phone || '',
-      bio: authStore.user.bio || '',
-      avatar: authStore.user.avatar || '',
-      createdAt: authStore.user.createdAt || '',
-      membershipStartTime: authStore.user.membershipStartTime || '',
-      membershipEndTime: authStore.user.membershipEndTime || '',
-      userRole: authStore.user.userRole || '',
-      id: authStore.user.id || 0,
+      username: user.value.username || '',
+      email: user.value.email || '',
+      phone: user.value.phone || '',
+      bio: user.value.bio || '',
+      avatar: user.value.avatar || '',
+      gender: user.value.gender || Gender.UNKNOWN,
+      createdAt: user.value.createdAt || '',
+      membershipStartTime: user.value.membershipStartTime || '',
+      membershipEndTime: user.value.membershipEndTime || '',
+      userRole: user.value.userRole || UserRole.NORMAL,
+      id: user.value.id || 0,
     }
   }
 })
