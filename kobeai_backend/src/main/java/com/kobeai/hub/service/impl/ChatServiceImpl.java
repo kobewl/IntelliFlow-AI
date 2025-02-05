@@ -19,6 +19,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -102,16 +103,24 @@ public class ChatServiceImpl implements ChatService {
 
         // 创建用户消息
         Message userMessage = new Message();
-        userMessage.setConversationId(conversation.getId());
+        userMessage.setConversation(conversation);
         userMessage.setSenderId(user.getId());
         userMessage.setRole(Message.Role.USER);
         userMessage.setContent(content);
         userMessage.setCreatedAt(LocalDateTime.now());
         messageRepository.save(userMessage);
 
+        // 检查是否是第一条消息，如果是则更新对话标题
+        List<Message> existingMessages = messageRepository.findMessages(conversation.getId(), PageRequest.of(0, 1));
+        if (existingMessages.size() == 1) { // 只有一条消息说明是第一次发送
+            String title = generateTitleFromMessage(content);
+            conversation.setTitle(title);
+            conversationRepository.save(conversation);
+        }
+
         // 创建AI回复消息
         Message aiMessage = new Message();
-        aiMessage.setConversationId(conversation.getId());
+        aiMessage.setConversation(conversation);
         aiMessage.setSenderId(-1L); // 使用 -1 作为 AI 消息的发送者ID
         aiMessage.setRole(Message.Role.ASSISTANT);
         aiMessage.setContent("");
@@ -123,6 +132,23 @@ public class ChatServiceImpl implements ChatService {
 
         // 调用AI服务生成回复
         return deepseekService.sendMessage(content, aiMessage);
+    }
+
+    // 根据消息内容生成标题
+    private String generateTitleFromMessage(String message) {
+        if (message == null || message.trim().isEmpty()) {
+            return "新对话";
+        }
+
+        // 去除换行符和多余空格
+        String title = message.replaceAll("\\s+", " ").trim();
+
+        // 如果内容超过10个字符，截取前10个字符
+        if (title.length() > 10) {
+            title = title.substring(0, 10) + "...";
+        }
+
+        return title;
     }
 
     @Override
@@ -426,8 +452,10 @@ public class ChatServiceImpl implements ChatService {
                 throw new RuntimeException("无权删除此会话");
             }
 
-            // 删除会话
-            conversationRepository.delete(conversation);
+            // 先删除该会话下所有相关消息，避免因 foreign key constraint 导致更新为 null 的错误
+            messageRepository.deleteByConversationId(id);
+            // 直接通过 ID 删除会话，避免 orphanRemoval 导致更新 conversation_id 为 null
+            conversationRepository.deleteById(id);
             return ApiResponse.success("删除成功");
         } catch (Exception e) {
             log.error("删除会话失败: {}", e.getMessage(), e);

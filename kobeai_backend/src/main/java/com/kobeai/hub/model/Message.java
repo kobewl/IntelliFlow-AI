@@ -3,6 +3,7 @@ package com.kobeai.hub.model;
 import lombok.Data;
 import javax.persistence.*;
 import java.time.LocalDateTime;
+import com.fasterxml.jackson.annotation.JsonBackReference;
 
 @Data
 @Entity
@@ -12,8 +13,10 @@ public class Message {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "conversation_id", nullable = false)
-    private Long conversationId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "conversation_id", nullable = false)
+    @JsonBackReference
+    private Conversation conversation;
 
     @Column(name = "sender_id")
     private Long senderId;
