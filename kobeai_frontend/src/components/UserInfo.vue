@@ -171,9 +171,9 @@
                 placeholder="请选择性别"
                 style="width: 100%"
               >
-                <el-option label="男" :value="1" />
-                <el-option label="女" :value="2" />
-                <el-option label="保密" :value="0" />
+                <el-option label="男" :value="Gender.MALE" />
+                <el-option label="女" :value="Gender.FEMALE" />
+                <el-option label="保密" :value="Gender.UNKNOWN" />
               </el-select>
               <div class="edit-actions">
                 <el-button @click="cancelEditGender">取消</el-button>
@@ -307,8 +307,8 @@ import { storeToRefs } from 'pinia'
 import { useAuthStore } from '../stores/auth'
 import { formatTime, formatRegistrationTime } from '../utils/time'
 import type { FormInstance } from 'element-plus'
-import { UserRole } from '../types/user'
-import { uploadFile } from '../api/file'
+import { UserRole, Gender } from '../types/user'
+import { authApi } from '../api/auth'
 
 const visible = ref(false)
 const authStore = useAuthStore()
@@ -345,7 +345,7 @@ const phoneInputRef = ref<HTMLInputElement>()
 
 // 性别编辑相关
 const isEditingGender = ref(false)
-const editingGender = ref(0)
+const editingGender = ref(Gender.UNKNOWN)
 
 // 个人简介编辑相关
 const isEditingBio = ref(false)
@@ -444,9 +444,9 @@ const membershipStatus = computed(() => {
 // 性别文本
 const getGenderText = computed(() => {
   switch (user.value?.gender) {
-    case 1:
+    case Gender.MALE:
       return '男'
-    case 2:
+    case Gender.FEMALE:
       return '女'
     default:
       return '保密'
@@ -548,12 +548,12 @@ const handlePhoneSubmit = async () => {
 
 // 性别编辑相关方法
 const startEditGender = () => {
-  editingGender.value = user.value?.gender || 0
+  editingGender.value = user.value?.gender || Gender.UNKNOWN
   isEditingGender.value = true
 }
 
 const cancelEditGender = () => {
-  editingGender.value = 0
+  editingGender.value = Gender.UNKNOWN
   isEditingGender.value = false
 }
 
@@ -567,7 +567,7 @@ const handleGenderSubmit = async () => {
       gender: editingGender.value
     })
     ElMessage.success('性别修改成功')
-    editingGender.value = 0
+    editingGender.value = Gender.UNKNOWN
     isEditingGender.value = false
   } catch (error: any) {
     ElMessage.error(error.message || '性别修改失败')
@@ -658,15 +658,18 @@ const handleChangeAvatar = async () => {
     }
     
     try {
-      // 上传文件
-      const avatarUrl = await uploadFile(file)
-      
-      // 更新用户头像
-      await authStore.updateProfile({
-        avatar: avatarUrl
-      })
-      
-      ElMessage.success('头像上传成功')
+      // 上传头像
+      const response = await authApi.uploadAvatar(file, user.value.id)
+      if (response.code === 200 && response.data) {
+        // 更新用户头像
+        await authStore.updateProfile({
+          ...user.value,
+          avatar: response.data
+        })
+        ElMessage.success('头像上传成功')
+      } else {
+        throw new Error(response.message || '头像上传失败')
+      }
     } catch (error: any) {
       ElMessage.error(error.message || '头像上传失败')
     }

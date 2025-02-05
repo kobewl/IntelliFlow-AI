@@ -201,16 +201,28 @@ public class UserServiceImpl implements UserService {
     @Transactional
     public ApiResponse<?> updateAvatar(Long userId, String avatarUrl) {
         try {
+            if (userId == null) {
+                return ApiResponse.error("用户ID不能为空");
+            }
+            if (avatarUrl == null || avatarUrl.trim().isEmpty()) {
+                return ApiResponse.error("头像URL不能为空");
+            }
+
             User user = userRepository.findById(userId)
                     .orElseThrow(() -> new RuntimeException("用户不存在"));
 
             // 更新头像URL
-            user.setAvatar(avatarUrl);
-            userRepository.save(user);
+            user.setAvatar(avatarUrl.trim());
+            User savedUser = userRepository.save(user);
 
-            return ApiResponse.success("头像更新成功", user);
+            // 清除缓存
+            String redisKey = RedisKeyConstant.USER_INFO_KEY + savedUser.getId();
+            redisTemplate.delete(redisKey);
+
+            // 只返回头像URL
+            return ApiResponse.success("头像更新成功", savedUser.getAvatar());
         } catch (Exception e) {
-            log.error("更新用户头像失败", e);
+            log.error("更新用户头像失败: {}", e.getMessage(), e);
             return ApiResponse.error("更新头像失败: " + e.getMessage());
         }
     }
@@ -219,22 +231,26 @@ public class UserServiceImpl implements UserService {
     @Transactional
     public ApiResponse<?> updateProfile(User updatedUser) {
         try {
+            if (updatedUser.getId() == null) {
+                return ApiResponse.error("用户ID不能为空");
+            }
+
             User existingUser = userRepository.findById(updatedUser.getId())
                     .orElseThrow(() -> new RuntimeException("用户不存在"));
 
-            // 更新基本信息
-            if (updatedUser.getUsername() != null) {
-                // 检查新用户名是否已被其他用户使用
+            // 用户名更新和验证
+            if (updatedUser.getUsername() != null && !updatedUser.getUsername().equals(existingUser.getUsername())) {
                 userRepository.findByUsername(updatedUser.getUsername())
                         .ifPresent(user -> {
                             if (!user.getId().equals(existingUser.getId())) {
-                                throw new RuntimeException("用户名已存在");
+                                throw new RuntimeException("用户名已被使用");
                             }
                         });
                 existingUser.setUsername(updatedUser.getUsername());
             }
 
-            if (updatedUser.getEmail() != null) {
+            // 邮箱更新和验证
+            if (updatedUser.getEmail() != null && !updatedUser.getEmail().equals(existingUser.getEmail())) {
                 userRepository.findByEmail(updatedUser.getEmail())
                         .ifPresent(user -> {
                             if (!user.getId().equals(existingUser.getId())) {
@@ -244,8 +260,40 @@ public class UserServiceImpl implements UserService {
                 existingUser.setEmail(updatedUser.getEmail());
             }
 
+            // 手机号更新和验证
+            if (updatedUser.getPhone() != null && !updatedUser.getPhone().equals(existingUser.getPhone())) {
+                userRepository.findByPhone(updatedUser.getPhone())
+                        .ifPresent(user -> {
+                            if (!user.getId().equals(existingUser.getId())) {
+                                throw new RuntimeException("手机号已被使用");
+                            }
+                        });
+                existingUser.setPhone(updatedUser.getPhone());
+            }
+
+            // 更新其他基本信息
+            if (updatedUser.getGender() != null) {
+                existingUser.setGender(updatedUser.getGender());
+            }
+            if (updatedUser.getBio() != null) {
+                existingUser.setBio(updatedUser.getBio());
+            }
+            if (updatedUser.getAvatar() != null) {
+                existingUser.setAvatar(updatedUser.getAvatar());
+            }
+
+            // 保持原有的敏感信息不变
+            existingUser.setUserRole(existingUser.getUserRole());
+            existingUser.setMembershipStartTime(existingUser.getMembershipStartTime());
+            existingUser.setMembershipEndTime(existingUser.getMembershipEndTime());
+
             // 保存更新
             User savedUser = userRepository.save(existingUser);
+
+            // 清除缓存
+            String redisKey = RedisKeyConstant.USER_INFO_KEY + savedUser.getId();
+            redisTemplate.delete(redisKey);
+
             return ApiResponse.success("用户信息更新成功", savedUser);
         } catch (Exception e) {
             log.error("更新用户信息失败", e);
