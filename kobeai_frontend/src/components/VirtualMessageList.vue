@@ -143,22 +143,9 @@ const formatMessage = (content: string): string => {
     .replace(/\\\./g, '.')
     .replace(/\\\!/g, '!')
 
-  // 处理 markdown 标题
-  content = content.replace(/^(#{1,6})\s+(.+)$/gm, (match, hashes, title) => {
-    return `${hashes} ${title.trim()}`
-  })
-
   // 处理代码块
   content = content.replace(/```(\w+)?\s*\n([\s\S]*?)\n```/g, (match, lang, code) => {
-    if (lang?.toLowerCase() === 'sql') {
-      return match
-    }
     return `\n${match}\n`
-  })
-
-  // 处理普通文本中的 SQL 语句
-  content = content.replace(/(?<!```sql\n)((?:INSERT|UPDATE|DELETE|SELECT|CREATE|DROP|ALTER)\s+[^;]+;)/gi, (match) => {
-    return `\n\`\`\`sql\n${match}\n\`\`\`\n`
   })
 
   const md = new MarkdownIt({
@@ -170,36 +157,25 @@ const formatMessage = (content: string): string => {
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
 
-      if (lang?.toLowerCase() === 'sql') {
+      if (lang && hljs.getLanguage(lang)) {
         try {
-          const formattedSql = formatSql(str)
-          const highlighted = hljs.highlight(formattedSql, { language: 'sql' }).value
+          const highlighted = hljs.highlight(str, { language: lang }).value
           const lines = highlighted.split('\n')
           const numberedLines = lines.map((line, i) => 
             `<span class="line"><span class="line-number">${i + 1}</span>${line}</span>`
           ).join('\n')
           
-          return `<div class="sql-block">
-            <div class="sql-header">
-              <span>sql</span>
+          return `<div class="code-block ${lang}-block">
+            <div class="code-header">
+              <span>${lang}</span>
               <button class="copy-btn" @click="copyToClipboard('${escapedCode}')">复制</button>
             </div>
-            <pre><code class="hljs sql" id="${uniqueId}">${numberedLines}</code></pre>
+            <pre><code class="hljs ${lang}" id="${uniqueId}">${numberedLines}</code></pre>
           </div>`
         } catch (err) {
-          console.error('SQL highlighting failed:', err)
+          console.error('Code highlighting failed:', err)
           return `<pre><code>${escapedCode}</code></pre>`
         }
-      }
-      
-      // 处理其他语言的代码
-      try {
-        if (lang && hljs.getLanguage(lang)) {
-          const highlighted = hljs.highlight(str, { language: lang }).value
-          return `<pre><code class="hljs ${lang}">${highlighted}</code></pre>`
-        }
-      } catch (err) {
-        console.error('Code highlighting failed:', err)
       }
       
       return `<pre><code>${escapedCode}</code></pre>`
@@ -219,14 +195,6 @@ const formatMessage = (content: string): string => {
 
   md.renderer.rules.paragraph_open = () => '<p class="markdown-paragraph">'
   
-  md.renderer.rules.fence = (tokens, idx, options, env, slf) => {
-    const token = tokens[idx]
-    const info = token.info ? md.utils.unescapeAll(token.info).trim() : ''
-    const lang = info ? info.split(/\s+/g)[0] : ''
-    
-    return options.highlight(token.content, lang, '')
-  }
-
   // 渲染 markdown
   let rendered = md.render(content)
 
@@ -541,75 +509,108 @@ export default {
       }
     }
     
-    :deep(pre) {
-      margin: 12px 0;
-      padding: 12px;
-      background: #f8f9fa;
-      border-radius: 6px;
-      overflow-x: auto;
-      font-family: 'JetBrains Mono', 'Fira Code', monospace;
-      font-size: 13px;
-      line-height: 1.5;
-      
-      code {
-        background: transparent;
-        padding: 0;
-        border-radius: 0;
-        color: inherit;
-      }
-    }
-    
-    :deep(code) {
-      font-family: 'JetBrains Mono', 'Fira Code', monospace;
-      font-size: 13px;
-      padding: 2px 6px;
-      border-radius: 4px;
-      background: #f3f4f6;
-      color: #333;
-    }
-    
-    :deep(ul), :deep(ol) {
-      margin: 8px 0;
-      padding-left: 20px;
-      
-      li {
-        margin: 4px 0;
-        line-height: 1.6;
-      }
-    }
-    
-    :deep(blockquote) {
-      margin: 12px 0;
-      padding: 8px 16px;
-      border-left: 4px solid #e5e7eb;
-      background: #f8f9fa;
-      color: #666;
-      
-      p {
-        margin: 0;
-      }
-    }
-    
-    :deep(hr) {
-      margin: 16px 0;
+    :deep(.code-block) {
+      margin: 12px 0 !important;
+      border-radius: 6px !important;
+      overflow: hidden;
+      background: #1a1b26;
       border: none;
-      border-top: 1px solid #e5e7eb;
-    }
-    
-    :deep(table) {
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2);
       width: 100%;
-      margin: 12px 0;
-      border-collapse: collapse;
       
-      th, td {
-        padding: 8px 12px;
-        border: 1px solid #e5e7eb;
-        text-align: left;
+      .code-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 6px 12px;
+        background: #24283b;
+        border-bottom: 1px solid #2f3241;
+        
+        span {
+          font-size: 12px;
+          font-weight: normal;
+          color: #7982a9;
+          text-transform: lowercase;
+          opacity: 0.8;
+        }
+        
+        .copy-btn {
+          padding: 3px 10px;
+          font-size: 12px;
+          border: 1px solid #2f3241;
+          border-radius: 3px;
+          background: transparent;
+          color: #7982a9;
+          cursor: pointer;
+          transition: all 0.2s;
+          
+          &:hover {
+            background: #2f3241;
+            color: #c0caf5;
+          }
+        }
       }
       
-      th {
-        background: #f8f9fa;
-        font-weight: 600;
+      pre {
+        margin: 0 !important;
+        padding: 12px !important;
+        background: #1a1b26 !important;
+        font-family: 'JetBrains Mono', 'Fira Code', monospace !important;
+        font-size: 13px !important;
+        line-height: 1.5 !important;
+        overflow-x: auto;
+        
+        code {
+          .line {
+            display: block;
+            padding-left: 2.5em;
+            position: relative;
+            white-space: pre;
+            
+            .line-number {
+              position: absolute;
+              left: 0;
+              width: 2em;
+              text-align: right;
+              padding-right: 0.5em;
+              color: #565f89;
+              opacity: 0.5;
+              user-select: none;
+            }
+            
+            &:hover {
+              background: #1e202e;
+            }
+          }
+          
+          &.hljs {
+            background: transparent !important;
+            padding: 0 !important;
+            color: #a9b1d6;
+            
+            .hljs-keyword {
+              color: #bb9af7;
+              font-weight: normal;
+            }
+            
+            .hljs-string {
+              color: #9ece6a;
+            }
+            
+            .hljs-number {
+              color: #ff9e64;
+            }
+            
+            .hljs-comment {
+              color: #565f89;
+              font-style: italic;
+            }
+            
+            .hljs-operator {
+              color: #89ddff;
+            }
+          }
+        }
       }
     }
   }
@@ -901,17 +902,44 @@ export default {
       color: #a9b1d6;
     }
     
-    :deep(pre) {
+    :deep(.code-block) {
       background: #1a1b26;
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
       
-      code {
-        color: #a9b1d6;
+      .code-header {
+        background: #24283b;
+        border-bottom-color: #2f3241;
+        
+        span {
+          color: #7982a9;
+        }
+        
+        .copy-btn {
+          border-color: #2f3241;
+          color: #7982a9;
+          
+          &:hover {
+            background: #2f3241;
+            color: #c0caf5;
+          }
+        }
       }
-    }
-    
-    :deep(code) {
-      background: #1a1b26;
-      color: #a9b1d6;
+      
+      pre {
+        background: #1a1b26 !important;
+        
+        code {
+          color: #a9b1d6;
+          
+          .line-number {
+            color: #565f89;
+          }
+          
+          &:hover {
+            background: #1e202e;
+          }
+        }
+      }
     }
   }
 }

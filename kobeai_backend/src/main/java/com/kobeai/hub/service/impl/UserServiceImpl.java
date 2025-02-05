@@ -2,6 +2,7 @@ package com.kobeai.hub.service.impl;
 
 import com.kobeai.hub.dto.UserDTO;
 import com.kobeai.hub.dto.request.RegisterRequest;
+import com.kobeai.hub.dto.request.UserRequest;
 import com.kobeai.hub.dto.request.UserUpdateRequest;
 import com.kobeai.hub.dto.response.ApiResponse;
 import com.kobeai.hub.exception.ResourceNotFoundException;
@@ -26,6 +27,8 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 @Slf4j
 @Service
@@ -295,15 +298,111 @@ public class UserServiceImpl implements UserService {
 
     @Override
     @CacheEvict(value = "users", key = "#id")
-    public void updateUser(Long id, UserUpdateRequest request) {
+    public User updateUser(Long id, UserUpdateRequest request) {
         // 更新用户信息
         User user = userRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
-        // ... update user logic ...
-        userRepository.save(user);
+                .orElseThrow(() -> new RuntimeException("用户不存在"));
+
+        // 更新用户信息
+        if (request.getUsername() != null) {
+            user.setUsername(request.getUsername());
+        }
+        if (request.getEmail() != null) {
+            user.setEmail(request.getEmail());
+        }
+        if (request.getPhone() != null) {
+            user.setPhone(request.getPhone());
+        }
+        if (request.getAvatar() != null) {
+            user.setAvatar(request.getAvatar());
+        }
+        if (request.getUserRole() != null) {
+            user.setUserRole(request.getUserRole());
+        }
+        if (request.getMembershipEndTime() != null) {
+            user.setMembershipEndTime(request.getMembershipEndTime());
+        }
+
+        // 保存更新
+        user = userRepository.save(user);
 
         // 删除缓存
         String redisKey = RedisKeyConstant.USER_INFO_KEY + id;
         redisTemplate.delete(redisKey);
+
+        return user;
+    }
+
+    @Override
+    public Page<User> getUserList(String username, String role, Pageable pageable) {
+        // 如果没有提供搜索条件，返回所有用户
+        if (username == null && role == null) {
+            return userRepository.findAll(pageable);
+        }
+
+        // 如果提供了用户名和角色
+        if (username != null && role != null) {
+            return userRepository.findByUsernameContainingAndUserRole(username, UserRole.valueOf(role), pageable);
+        }
+
+        // 如果只提供了用户名
+        if (username != null) {
+            return userRepository.findByUsernameContaining(username, pageable);
+        }
+
+        // 如果只提供了角色
+        return userRepository.findByUserRole(UserRole.valueOf(role), pageable);
+    }
+
+    @Override
+    public User addUser(UserRequest request) {
+        // 检查用户名是否已存在
+        if (userRepository.existsByUsername(request.getUsername())) {
+            throw new RuntimeException("用户名已存在");
+        }
+
+        User user = new User();
+        user.setUsername(request.getUsername());
+        user.setPassword(passwordEncoder.encode(request.getPassword()));
+        user.setEmail(request.getEmail());
+        user.setPhone(request.getPhone());
+        user.setAvatar(request.getAvatar());
+        user.setUserRole(request.getUserRole());
+        user.setMembershipEndTime(request.getMembershipEndTime());
+
+        return userRepository.save(user);
+    }
+
+    @Override
+    public void deleteUser(Long id) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("用户不存在"));
+        userRepository.delete(user);
+    }
+
+    @Override
+    public User setUserRole(Long id, UserRole role, LocalDateTime membershipEndTime) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("用户不存在"));
+
+        user.setUserRole(role);
+        user.setMembershipEndTime(membershipEndTime);
+
+        return userRepository.save(user);
+    }
+
+    @Override
+    public long count() {
+        return userRepository.count();
+    }
+
+    @Override
+    public long countByCreatedAtAfter(LocalDateTime dateTime) {
+        return userRepository.countByCreatedAtAfter(dateTime);
+    }
+
+    @Override
+    public long countByUserRole(UserRole role) {
+        return userRepository.countByUserRole(role);
     }
 }
