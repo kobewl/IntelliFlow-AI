@@ -69,13 +69,13 @@ public class MessageServiceImpl implements MessageService {
     }
 
     @Override
-    @CachePut(value = "messages", key = "'conv:' + #result.conversationId + ':msg:' + #result.id")
+    @CachePut(value = "messages", key = "'conv:' + #result.conversation.id + ':msg:' + #result.id")
     public Message saveMessage(Message message) {
-        log.debug("保存新消息, conversationId: {}", message.getConversationId());
+        log.debug("保存新消息, conversationId: {}", message.getConversation().getId());
         Message savedMessage = messageRepository.save(message);
 
         // 清除相关的缓存
-        String latestKey = "messages::conv:" + message.getConversationId() + ":latest:*";
+        String latestKey = "messages::conv:" + message.getConversation().getId() + ":latest:*";
         Set<String> keys = redisTemplate.keys(latestKey);
         if (keys != null && !keys.isEmpty()) {
             redisTemplate.delete(keys);

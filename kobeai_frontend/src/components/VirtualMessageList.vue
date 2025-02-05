@@ -1,5 +1,5 @@
 <template>
-  <div class="virtual-message-list" ref="containerRef">
+  <div class="virtual-message-list" ref="containerRef" @click="handleCodeCopy">
     <div v-if="hasMore" class="load-more">
       <el-button 
         :loading="loadingMore" 
@@ -16,7 +16,7 @@
         :class="['message-item', message.role.toLowerCase()]"
       >
         <div class="avatar">
-          <template v-if="message.role === 'ASSISTANT'">
+          <template v-if="message.role === 'assistant'">
             <el-avatar 
               :size="36"
               class="ai-avatar"
@@ -168,7 +168,7 @@ const formatMessage = (content: string): string => {
           return `<div class="code-block ${lang}-block">
             <div class="code-header">
               <span>${lang}</span>
-              <button class="copy-btn" @click="copyToClipboard('${escapedCode}')">复制</button>
+              <button class="copy-btn" data-code="${uniqueId}">复制</button>
             </div>
             <pre><code class="hljs ${lang}" id="${uniqueId}">${numberedLines}</code></pre>
           </div>`
@@ -313,9 +313,8 @@ onMounted(async () => {
   await nextTick()
   if (containerRef.value) {
     containerRef.value.scrollTop = containerRef.value.scrollHeight
-    // 添加事件监听
+    // 添加滚动事件监听
     containerRef.value.addEventListener('scroll', handleScroll)
-    containerRef.value.addEventListener('click', handleCodeCopy, true)
   }
 })
 
@@ -323,7 +322,6 @@ onMounted(async () => {
 onUnmounted(() => {
   if (containerRef.value) {
     containerRef.value.removeEventListener('scroll', handleScroll)
-    containerRef.value.removeEventListener('click', handleCodeCopy, true)
   }
 })
 
