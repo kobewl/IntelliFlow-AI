@@ -152,6 +152,12 @@ public class DeepseekServiceImpl implements DeepseekService {
                             if (line.isEmpty())
                                 continue;
 
+                            // 检查是否是SSE数据前缀
+                            if (!line.startsWith("data:")) {
+                                log.debug("跳过非SSE数据行: {}", line);
+                                continue;
+                            }
+
                             if (line.equals("data: [DONE]")) {
                                 String finalContent = contentBuilder.toString();
                                 // 保存AI回复到数据库
@@ -166,7 +172,12 @@ public class DeepseekServiceImpl implements DeepseekService {
                                 break;
                             }
 
-                            String data = line.substring(6);
+                            // 确保数据行以"data:"开头并提取JSON部分
+                            String data = line.substring(6).trim();
+                            if (data.isEmpty()) {
+                                continue;
+                            }
+
                             try {
                                 Map<String, Object> response = objectMapper.readValue(data, Map.class);
                                 if (response.containsKey("choices")) {
