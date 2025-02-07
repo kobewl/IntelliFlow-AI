@@ -1,5 +1,6 @@
 package com.kobeai.hub.mq;
 
+import com.kobeai.hub.config.RabbitMQConfig;
 import com.kobeai.hub.service.EmailService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
@@ -13,7 +14,7 @@ public class EmailVerificationConsumer {
 
     private final EmailService emailService;
 
-    @RabbitListener(queues = "email.verification.queue")
+    @RabbitListener(queues = RabbitMQConfig.EMAIL_QUEUE)
     public void handleEmailVerification(EmailVerificationMessage message) {
         emailService.sendVerificationCode(message.getEmail(), message.getCode());
     }

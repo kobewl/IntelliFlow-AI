@@ -9,17 +9,20 @@ import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.connection.RedisStandaloneConfiguration;
 import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
 import org.springframework.data.redis.serializer.RedisSerializationContext;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
 import org.springframework.beans.factory.annotation.Value;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import lombok.extern.slf4j.Slf4j;
 
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 
+@Slf4j
 @Configuration
 @EnableCaching
 public class RedisConfig {
@@ -30,12 +33,31 @@ public class RedisConfig {
     @Value("${spring.redis.port}")
     private int redisPort;
 
+    @Value("${spring.redis.database:0}")
+    private int database;
+
+    @Value("${spring.redis.timeout:5000}")
+    private int timeout;
+
     @Bean
     public RedisConnectionFactory redisConnectionFactory() {
-        RedisStandaloneConfiguration config = new RedisStandaloneConfiguration();
-        config.setHostName(redisHost);
-        config.setPort(redisPort);
-        return new LettuceConnectionFactory(config);
+        try {
+            RedisStandaloneConfiguration config = new RedisStandaloneConfiguration();
+            config.setHostName(redisHost);
+            config.setPort(redisPort);
+            config.setDatabase(database);
+
+            LettuceConnectionFactory factory = new LettuceConnectionFactory(config);
+            factory.afterPropertiesSet(); // 确保工厂正确初始化
+
+            log.info("Redis connection factory created successfully. Host: {}, Port: {}, Database: {}",
+                    redisHost, redisPort, database);
+
+            return factory;
+        } catch (Exception e) {
+            log.error("Failed to create Redis connection factory: {}", e.getMessage(), e);
+            throw e;
+        }
     }
 
     @Bean
@@ -46,47 +68,71 @@ public class RedisConfig {
     }
 
     @Bean
-    public RedisTemplate<String, Object> redisTemplate(RedisConnectionFactory connectionFactory,
-            ObjectMapper redisObjectMapper) {
-        RedisTemplate<String, Object> template = new RedisTemplate<>();
+    public RedisTemplate<String, Object> redisTemplate(RedisConnectionFactory connectionFactory) {
+        try {
+            RedisTemplate<String, Object> template = new RedisTemplate<>();
+            template.setConnectionFactory(connectionFactory);
+
+            // 使用简单的字符串序列化器
+            StringRedisSerializer stringSerializer = new StringRedisSerializer();
+
+            // 设置所有的序列化器为字符串序列化器
+            template.setKeySerializer(stringSerializer);
+            template.setValueSerializer(stringSerializer);
+            template.setHashKeySerializer(stringSerializer);
+            template.setHashValueSerializer(stringSerializer);
+            template.setStringSerializer(stringSerializer);
+            template.setDefaultSerializer(stringSerializer);
+
+            template.afterPropertiesSet();
+            log.info("Redis template configured successfully with StringRedisSerializer");
+
+            // 测试连接
+            template.getConnectionFactory().getConnection().ping();
+            log.info("Redis connection test successful");
+
+            return template;
+        } catch (Exception e) {
+            log.error("Failed to create Redis template: {}", e.getMessage(), e);
+            throw e;
+        }
+    }
+
+    @Bean
+    public StringRedisTemplate stringRedisTemplate(RedisConnectionFactory connectionFactory) {
+        StringRedisTemplate template = new StringRedisTemplate();
         template.setConnectionFactory(connectionFactory);
-
-        // 使用 JSON 序列化器，并配置 ObjectMapper
-        GenericJackson2JsonRedisSerializer jsonSerializer = new GenericJackson2JsonRedisSerializer(redisObjectMapper);
-        StringRedisSerializer stringSerializer = new StringRedisSerializer();
-
-        // 设置key和value的序列化方式
-        template.setKeySerializer(stringSerializer);
-        template.setValueSerializer(jsonSerializer);
-        template.setHashKeySerializer(stringSerializer);
-        template.setHashValueSerializer(jsonSerializer);
-
-        template.afterPropertiesSet();
+        template.afterPropertiesSet(); // 添加这行确保模板正确初始化
         return template;
     }
 
     @Bean
-    public RedisCacheManager cacheManager(RedisConnectionFactory connectionFactory, ObjectMapper redisObjectMapper) {
-        GenericJackson2JsonRedisSerializer jsonSerializer = new GenericJackson2JsonRedisSerializer(redisObjectMapper);
-        StringRedisSerializer stringSerializer = new StringRedisSerializer();
+    public RedisCacheManager cacheManager(RedisConnectionFactory connectionFactory) {
+        try {
+            StringRedisSerializer stringSerializer = new StringRedisSerializer();
 
-        // 默认配置
-        RedisCacheConfiguration defaultConfig = RedisCacheConfiguration.defaultCacheConfig()
-                .entryTtl(Duration.ofHours(1))
-                .serializeKeysWith(RedisSerializationContext.SerializationPair.fromSerializer(stringSerializer))
-                .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(jsonSerializer))
-                .disableCachingNullValues();
+            // 默认配置
+            RedisCacheConfiguration defaultConfig = RedisCacheConfiguration.defaultCacheConfig()
+                    .entryTtl(Duration.ofHours(1))
+                    .serializeKeysWith(RedisSerializationContext.SerializationPair.fromSerializer(stringSerializer))
+                    .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(stringSerializer))
+                    .disableCachingNullValues();
 
-        // 针对不同类型的数据配置不同的过期时间
-        Map<String, RedisCacheConfiguration> configMap = new HashMap<>();
-        configMap.put("users", defaultConfig.entryTtl(Duration.ofHours(24))); // 用户信息缓存24小时
-        configMap.put("messages", defaultConfig.entryTtl(Duration.ofHours(2))); // 消息缓存2小时
-        configMap.put("conversations", defaultConfig.entryTtl(Duration.ofHours(12))); // 会话缓存12小时
-        configMap.put("announcements", defaultConfig.entryTtl(Duration.ofDays(1))); // 公告缓存1天
+            // 针对不同类型的数据配置不同的过期时间
+            Map<String, RedisCacheConfiguration> configMap = new HashMap<>();
+            configMap.put("users", defaultConfig.entryTtl(Duration.ofHours(24)));
+            configMap.put("messages", defaultConfig.entryTtl(Duration.ofHours(2)));
+            configMap.put("conversations", defaultConfig.entryTtl(Duration.ofHours(12)));
+            configMap.put("announcements", defaultConfig.entryTtl(Duration.ofDays(1)));
 
-        return RedisCacheManager.builder(connectionFactory)
-                .cacheDefaults(defaultConfig)
-                .withInitialCacheConfigurations(configMap)
-                .build();
+            log.info("Redis cache manager configured successfully");
+            return RedisCacheManager.builder(connectionFactory)
+                    .cacheDefaults(defaultConfig)
+                    .withInitialCacheConfigurations(configMap)
+                    .build();
+        } catch (Exception e) {
+            log.error("Failed to create Redis cache manager: {}", e.getMessage(), e);
+            throw e;
+        }
     }
 }

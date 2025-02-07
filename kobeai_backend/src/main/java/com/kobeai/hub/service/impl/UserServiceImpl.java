@@ -33,6 +33,7 @@ import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import java.util.Random;
 import com.kobeai.hub.mq.EmailVerificationConsumer.EmailVerificationMessage;
+import com.kobeai.hub.config.RabbitMQConfig;
 
 @Slf4j
 @Service
@@ -45,6 +46,7 @@ public class UserServiceImpl implements UserService {
     private final JwtUtil jwtUtil;
     private final RabbitTemplate rabbitTemplate;
     private final RedisTemplate<String, Object> redisTemplate;
+    private final StringRedisTemplate stringRedisTemplate;
 
     @Override
     public ApiResponse<?> login(String username, String password) {
@@ -466,7 +468,23 @@ public class UserServiceImpl implements UserService {
 
             // 将验证码保存到Redis，设置5分钟过期
             String redisKey = "email:verification:" + email;
-            redisTemplate.opsForValue().set(redisKey, verificationCode, 5, TimeUnit.MINUTES);
+            try {
+                redisTemplate.opsForValue().set(redisKey, verificationCode, 5, TimeUnit.MINUTES);
+                log.info("Saving verification code to Redis. Key: {}, Code: {}", redisKey, verificationCode);
+
+                // 立即读取验证一下是否保存成功
+                String savedCode = (String) redisTemplate.opsForValue().get(redisKey);
+                log.info("Immediately checking saved code in Redis. Key: {}, Saved Code: {}, Expected Code: {}",
+                        redisKey, savedCode, verificationCode);
+
+                if (savedCode == null) {
+                    log.error("Failed to save verification code to Redis. Code was not found after saving.");
+                    return ApiResponse.error("验证码保存失败");
+                }
+            } catch (Exception e) {
+                log.error("Redis operation failed: {}", e.getMessage(), e);
+                return ApiResponse.error("Redis操作失败: " + e.getMessage());
+            }
 
             // 创建消息对象
             EmailVerificationMessage message = new EmailVerificationMessage();
@@ -487,19 +505,29 @@ public class UserServiceImpl implements UserService {
     @Override
     public ApiResponse<?> verifyEmailCode(String email, String code) {
         String redisKey = "email:verification:" + email;
-        String savedCode = (String) redisTemplate.opsForValue().get(redisKey);
+        try {
+            String savedCode = (String) redisTemplate.opsForValue().get(redisKey);
+            log.info("Verifying code. Key: {}, Input Code: {}, Saved Code: {}", redisKey, code, savedCode);
 
-        if (savedCode == null) {
-            return ApiResponse.error("验证码已过期");
+            if (savedCode == null) {
+                log.warn("Verification code not found in Redis for key: {}", redisKey);
+                return ApiResponse.error("验证码已过期");
+            }
+
+            if (!savedCode.equals(code)) {
+                log.warn("Code mismatch. Input: {}, Saved: {}", code, savedCode);
+                return ApiResponse.error("验证码错误");
+            }
+
+            // 验证成功后删除验证码
+            Boolean deleteResult = redisTemplate.delete(redisKey);
+            log.info("Delete verification code from Redis. Key: {}, Result: {}", redisKey, deleteResult);
+
+            return ApiResponse.success("验证成功");
+        } catch (Exception e) {
+            log.error("Redis verification operation failed: {}", e.getMessage(), e);
+            return ApiResponse.error("验证码验证失败: " + e.getMessage());
         }
-
-        if (!savedCode.equals(code)) {
-            return ApiResponse.error("验证码错误");
-        }
-
-        // 验证成功后删除验证码
-        redisTemplate.delete(redisKey);
-        return ApiResponse.success("验证成功");
     }
 
     // 生成6位随机验证码
