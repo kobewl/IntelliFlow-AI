@@ -65,4 +65,10 @@ public interface UserService {
 
     // 获取指定角色的用户数
     long countByUserRole(UserRole role);
+
+    // 发送邮箱验证码
+    ApiResponse<?> sendEmailVerificationCode(String email);
+
+    // 验证邮箱验证码
+    ApiResponse<?> verifyEmailCode(String email, String code);
 }

@@ -127,7 +127,9 @@ public class DeepseekServiceImpl implements DeepseekService {
                 conn.setRequestMethod("POST");
                 conn.setRequestProperty("Content-Type", "application/json");
                 conn.setRequestProperty("Authorization", "Bearer " + apiKey);
+                conn.setRequestProperty("Accept", "text/event-stream");
                 conn.setDoOutput(true);
+                conn.setChunkedStreamingMode(0);
                 conn.setConnectTimeout(10000);
                 conn.setReadTimeout(60000);
 
@@ -147,18 +149,32 @@ public class DeepseekServiceImpl implements DeepseekService {
                             new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8))) {
                         StringBuilder contentBuilder = new StringBuilder();
                         String line;
+                        // 记录最后一次接收到有效数据（以"data:"开头）的时间
+                        long lastValidTime = System.currentTimeMillis();
+                        // 定义超时时间为60秒，如果60秒内只收到keep-alive而无有效数据，则终止读取
+                        final long TIMEOUT_THRESHOLD = 60000;
 
                         while ((line = reader.readLine()) != null) {
                             if (line.isEmpty())
                                 continue;
 
-                            // 检查是否是SSE数据前缀
-                            if (!line.startsWith("data:")) {
-                                log.debug("跳过非SSE数据行: {}", line);
+                            String trimmedLine = line.trim();
+                            // 如果接收到的是keep-alive行，则检查是否超时
+                            if (trimmedLine.equals(": keep-alive")) {
+                                log.debug("跳过keep-alive行: {}", trimmedLine);
+                                if (System.currentTimeMillis() - lastValidTime > TIMEOUT_THRESHOLD) {
+                                    log.warn("长时间仅收到keep-alive，无有效数据，终止读取");
+                                    break;
+                                }
                                 continue;
                             }
 
-                            if (line.equals("data: [DONE]")) {
+                            if (!trimmedLine.startsWith("data:")) {
+                                log.debug("跳过非SSE数据行: {}", trimmedLine);
+                                continue;
+                            }
+
+                            if (trimmedLine.equals("data: [DONE]")) {
                                 String finalContent = contentBuilder.toString();
                                 // 保存AI回复到数据库
                                 aiMessage.setContent(finalContent);
@@ -172,8 +188,10 @@ public class DeepseekServiceImpl implements DeepseekService {
                                 break;
                             }
 
-                            // 确保数据行以"data:"开头并提取JSON部分
-                            String data = line.substring(6).trim();
+                            // 更新最后接收到有效数据的时间
+                            lastValidTime = System.currentTimeMillis();
+
+                            String data = trimmedLine.substring(6).trim();
                             if (data.isEmpty()) {
                                 continue;
                             }
@@ -211,6 +229,24 @@ public class DeepseekServiceImpl implements DeepseekService {
                             } catch (Exception e) {
                                 log.error("解析响应数据失败: {}", e.getMessage());
                             }
+                        }
+
+                        // 当读取结束后，若contentBuilder有累积内容，则发送完成事件；否则，返回错误提示
+                        if (contentBuilder.length() > 0) {
+                            String finalContent = contentBuilder.toString();
+                            aiMessage.setContent(finalContent);
+                            messageRepository.save(aiMessage);
+
+                            emitter.send(SseEmitter.event()
+                                    .name("done")
+                                    .data(finalContent)
+                                    .build());
+                        } else {
+                            log.warn("未收到有效的响应数据");
+                            emitter.send(SseEmitter.event()
+                                    .name("error")
+                                    .data("未收到有效的响应数据")
+                                    .build());
                         }
                     }
                 } else {

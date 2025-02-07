@@ -3,7 +3,7 @@ import { ElMessage } from 'element-plus'
 
 // 创建 axios 实例
 const request = axios.create({
-  baseURL: import.meta.env.VITE_API_URL,
+  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api',
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json'
@@ -13,6 +13,13 @@ const request = axios.create({
 // 请求拦截器
 request.interceptors.request.use(
   (config) => {
+    console.log('Request URL:', config.baseURL + config.url) // 添加日志
+    
+    // 对于邮箱验证码相关的接口，不添加token
+    if (config.url?.includes('/user/email/')) {
+      return config
+    }
+    
     const token = localStorage.getItem('token')
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
@@ -20,6 +27,7 @@ request.interceptors.request.use(
     return config
   },
   (error) => {
+    console.error('Request error:', error) // 添加日志
     return Promise.reject(error)
   }
 )
@@ -27,6 +35,7 @@ request.interceptors.request.use(
 // 响应拦截器
 request.interceptors.response.use(
   (response) => {
+    console.log('Response:', response) // 添加日志
     const { data } = response
     
     // 如果后端返回的不是标准格式，直接返回数据
@@ -35,7 +44,7 @@ request.interceptors.response.use(
     }
     
     // 处理业务状态码
-    if (data.code === 0) {
+    if (data.code === 200) {
       return data
     }
     
@@ -44,6 +53,7 @@ request.interceptors.response.use(
     return Promise.reject(new Error(data.message || '请求失败'))
   },
   (error) => {
+    console.error('Response error:', error) // 添加日志
     // 处理 HTTP 错误
     if (error.response) {
       const { status, data } = error.response
