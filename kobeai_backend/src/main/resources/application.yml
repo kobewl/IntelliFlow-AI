@@ -31,6 +31,37 @@ spring:
         max-idle: 8
         min-idle: 0
 
+  # RabbitMQ配置
+  rabbitmq:
+    host: 39.98.107.158
+    username: wangliang
+    password: kobe200800
+    port: 5672
+
+  # 邮件配置
+  mail:
+    host: smtp.qq.com
+    port: 587
+    username: 3130187893@qq.com
+    password: temhyrznlggedgff
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
+
+  # 热部署配置
+  devtools:
+    restart:
+      enabled: true # 开启热部署
+      additional-paths: src/main/java # 重启目录
+      exclude: WEB-INF/** # 排除WEB-INF目录
+    livereload:
+      enabled: true # 开启livereload
+      port: 35729 # livereload端口
+
 server:
   port: 8080
   servlet:

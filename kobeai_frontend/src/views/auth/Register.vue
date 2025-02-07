@@ -59,6 +59,31 @@
               placeholder="请输入邮箱"
               :prefix-icon="Message"
               size="large"
+            >
+              <template #append>
+                <el-button 
+                  :disabled="!!timer || !form.email"
+                  @click="handleSendCode"
+                >
+                  {{ timer ? `${countdown}s后重试` : '获取验证码' }}
+                </el-button>
+              </template>
+            </el-input>
+          </el-form-item>
+          
+          <el-form-item label="验证码" prop="code">
+            <el-input
+              v-model="form.code"
+              placeholder="请输入验证码"
+              size="large"
+            />
+          </el-form-item>
+          
+          <el-form-item label="手机号" prop="phone">
+            <el-input
+              v-model="form.phone"
+              placeholder="请输入手机号"
+              size="large"
             />
           </el-form-item>
           
@@ -99,24 +124,26 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { User, Lock, ArrowRight, ChatRound, Message } from '@element-plus/icons-vue'
 import type { FormInstance, FormRules } from 'element-plus'
-import { useAuthStore } from '../../store/auth'
+import * as authApi from '../../api/auth'
 
 const router = useRouter()
-const authStore = useAuthStore()
-
 const formRef = ref<FormInstance>()
 const loading = ref(false)
+const timer = ref<number | null>(null)
+const countdown = ref(60)
 
-const form = ref({
+const form = reactive({
   username: '',
   password: '',
   confirmPassword: '',
-  email: ''
+  email: '',
+  code: '',
+  phone: ''
 })
 
 const rules: FormRules = {
@@ -132,7 +159,7 @@ const rules: FormRules = {
     { required: true, message: '请确认密码', trigger: 'blur' },
     {
       validator: (rule: any, value: string, callback: Function) => {
-        if (value !== form.value.password) {
+        if (value !== form.password) {
           callback(new Error('两次输入的密码不一致'))
         } else {
           callback()
@@ -144,29 +171,71 @@ const rules: FormRules = {
   email: [
     { required: true, message: '请输入邮箱', trigger: 'blur' },
     { type: 'email', message: '请输入正确的邮箱格式', trigger: 'blur' }
+  ],
+  code: [
+    { required: true, message: '请输入验证码', trigger: 'blur' },
+    { len: 6, message: '验证码长度为6位', trigger: 'blur' }
+  ],
+  phone: [
+    { required: true, message: '请输入手机号', trigger: 'blur' },
+    { pattern: /^1[3-9]\d{9}$/, message: '请输入正确的手机号', trigger: 'blur' }
   ]
 }
 
 const handleSubmit = async () => {
-  if (!formRef.value) return
+  if (loading.value) return
   
   try {
-    await formRef.value.validate()
+    await formRef.value?.validate()
     loading.value = true
     
-    const success = await authStore.register(
-      form.value.username,
-      form.value.password,
-      form.value.email
-    )
+    // 先验证验证码
+    const verifyRes = await authApi.verifyEmailCode(form.email, form.code)
+    if (verifyRes.data.code !== 200) {
+      throw new Error(verifyRes.data.message || '验证码验证失败')
+    }
     
-    if (success) {
-      await router.push('/auth/login')
+    // 提交注册
+    const res = await authApi.register({
+      username: form.username,
+      password: form.password,
+      email: form.email,
+      phone: form.phone
+    })
+    
+    if (res.data.code === 200) {
+      ElMessage.success('注册成功')
+      router.push('/login')
+    } else {
+      throw new Error(res.data.message || '注册失败')
     }
   } catch (error: any) {
-    console.error('注册失败:', error)
+    ElMessage.error(error.message || '注册失败')
   } finally {
     loading.value = false
+  }
+}
+
+// 发送验证码
+const handleSendCode = async () => {
+  try {
+    await formRef.value?.validateField('email')
+    await authApi.sendEmailCode(form.email)
+    ElMessage.success('验证码已发送，请注意查收')
+    
+    // 开始倒计时
+    countdown.value = 60
+    timer.value = window.setInterval(() => {
+      countdown.value--
+      if (countdown.value <= 0) {
+        if (timer.value) {
+          clearInterval(timer.value)
+          timer.value = null
+        }
+      }
+    }, 1000)
+  } catch (error: any) {
+    ElMessage.error(error.message || '发送验证码失败')
   }
 }
 </script>

@@ -29,6 +29,10 @@ import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import java.util.Random;
+import com.kobeai.hub.mq.EmailVerificationConsumer.EmailVerificationMessage;
 
 @Slf4j
 @Service
@@ -36,11 +40,11 @@ import org.springframework.data.domain.Pageable;
 public class UserServiceImpl implements UserService {
 
     private final UserRepository userRepository;
+    private final UserMapper userMapper;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
-
-    @Autowired
-    private RedisTemplate<String, Object> redisTemplate;
+    private final RabbitTemplate rabbitTemplate;
+    private final RedisTemplate<String, Object> redisTemplate;
 
     @Override
     public ApiResponse<?> login(String username, String password) {
@@ -56,7 +60,7 @@ public class UserServiceImpl implements UserService {
 
             // 将用户信息存入Redis缓存
             String redisKey = RedisKeyConstant.USER_INFO_KEY + user.getId();
-            UserDTO userDTO = UserMapper.INSTANCE.toDTO(user);
+            UserDTO userDTO = userMapper.toDTO(user);
             redisTemplate.opsForValue().set(redisKey, userDTO, RedisKeyConstant.USER_INFO_TTL, TimeUnit.SECONDS);
 
             Map<String, Object> result = new HashMap<>();
@@ -337,7 +341,7 @@ public class UserServiceImpl implements UserService {
         // 缓存不存在，从数据库查询
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
-        UserDTO userDTO = UserMapper.INSTANCE.toDTO(user);
+        UserDTO userDTO = userMapper.toDTO(user);
 
         // 存入缓存
         redisTemplate.opsForValue().set(redisKey, userDTO, RedisKeyConstant.USER_INFO_TTL, TimeUnit.SECONDS);
@@ -452,5 +456,59 @@ public class UserServiceImpl implements UserService {
     @Override
     public long countByUserRole(UserRole role) {
         return userRepository.countByUserRole(role);
+    }
+
+    @Override
+    public ApiResponse<?> sendEmailVerificationCode(String email) {
+        try {
+            // 生成6位随机验证码
+            String verificationCode = generateVerificationCode();
+
+            // 将验证码保存到Redis，设置5分钟过期
+            String redisKey = "email:verification:" + email;
+            redisTemplate.opsForValue().set(redisKey, verificationCode, 5, TimeUnit.MINUTES);
+
+            // 创建消息对象
+            EmailVerificationMessage message = new EmailVerificationMessage();
+            message.setEmail(email);
+            message.setCode(verificationCode);
+
+            // 发送到RabbitMQ队列
+            rabbitTemplate.convertAndSend("email.verification.queue", message);
+            log.info("Verification code sent to MQ for email: {}", email);
+
+            return ApiResponse.success("验证码已发送到邮箱");
+        } catch (Exception e) {
+            log.error("Failed to send verification code: {}", e.getMessage(), e);
+            return ApiResponse.error("发送验证码失败: " + e.getMessage());
+        }
+    }
+
+    @Override
+    public ApiResponse<?> verifyEmailCode(String email, String code) {
+        String redisKey = "email:verification:" + email;
+        String savedCode = (String) redisTemplate.opsForValue().get(redisKey);
+
+        if (savedCode == null) {
+            return ApiResponse.error("验证码已过期");
+        }
+
+        if (!savedCode.equals(code)) {
+            return ApiResponse.error("验证码错误");
+        }
+
+        // 验证成功后删除验证码
+        redisTemplate.delete(redisKey);
+        return ApiResponse.success("验证成功");
+    }
+
+    // 生成6位随机验证码
+    private String generateVerificationCode() {
+        Random random = new Random();
+        StringBuilder code = new StringBuilder();
+        for (int i = 0; i < 6; i++) {
+            code.append(random.nextInt(10));
+        }
+        return code.toString();
     }
 }

@@ -1,6 +1,7 @@
 import axios from 'axios'
 import type { AxiosResponse } from 'axios'
 import type { User } from '../types/user'
+import request from '../utils/request'
 
 export interface LoginRequest {
   username: string
@@ -312,4 +313,56 @@ export const authApi = {
   }
 }
 
-export default api 
+export default api
+
+// 登录接口
+export const login = (data: {
+  username: string
+  password: string
+}) => {
+  return request({
+    url: '/auth/login',
+    method: 'post',
+    data
+  })
+}
+
+// 注册接口
+export const register = (data: {
+  username: string
+  password: string
+  email: string
+  phone: string
+}) => {
+  return request({
+    url: '/auth/register',
+    method: 'post',
+    data
+  })
+}
+
+// 发送邮箱验证码
+export const sendEmailCode = (email: string) => {
+  return request({
+    url: '/user/email/send',
+    method: 'post',
+    data: { email }
+  })
+}
+
+// 验证邮箱验证码
+export const verifyEmailCode = (email: string, code: string) => {
+  return request({
+    url: '/user/email/verify',
+    method: 'post',
+    data: { email, code }
+  })
+}
+
+// 登出接口
+export const logout = () => {
+  return request({
+    url: '/auth/logout',
+    method: 'post'
+  })
+} 
