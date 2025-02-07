@@ -130,6 +130,7 @@ import { ElMessage } from 'element-plus'
 import { User, Lock, ArrowRight, ChatRound, Message } from '@element-plus/icons-vue'
 import type { FormInstance, FormRules } from 'element-plus'
 import * as authApi from '../../api/auth'
+import { ApiResponse, EmailCodeResponse, RegisterResponse } from '../../types/api'
 
 const router = useRouter()
 const formRef = ref<FormInstance>()
@@ -190,24 +191,19 @@ const handleSubmit = async () => {
     loading.value = true
     
     // 先验证验证码
-    const verifyRes = await authApi.verifyEmailCode(form.email, form.code)
-    if (verifyRes.data.code !== 200) {
-      throw new Error(verifyRes.data.message || '验证码验证失败')
+    const verifyRes = await authApi.verifyEmailCode(form.email, form.code) as ApiResponse<EmailCodeResponse>
+    if (verifyRes.code !== 200) {
+      throw new Error(verifyRes.message || '验证码验证失败')
     }
     
     // 提交注册
-    const res = await authApi.register({
-      username: form.username,
-      password: form.password,
-      email: form.email,
-      phone: form.phone
-    })
+    const res = await authApi.register(form) as ApiResponse<RegisterResponse>
     
-    if (res.data.code === 200) {
+    if (res.code === 200) {
       ElMessage.success('注册成功')
-      router.push('/login')
+      router.push('/auth/login')
     } else {
-      throw new Error(res.data.message || '注册失败')
+      throw new Error(res.message || '注册失败')
     }
   } catch (error: any) {
     ElMessage.error(error.message || '注册失败')
@@ -220,20 +216,25 @@ const handleSubmit = async () => {
 const handleSendCode = async () => {
   try {
     await formRef.value?.validateField('email')
-    await authApi.sendEmailCode(form.email)
-    ElMessage.success('验证码已发送，请注意查收')
+    const res = await authApi.sendEmailCode(form.email) as ApiResponse<EmailCodeResponse>
     
-    // 开始倒计时
-    countdown.value = 60
-    timer.value = window.setInterval(() => {
-      countdown.value--
-      if (countdown.value <= 0) {
-        if (timer.value) {
-          clearInterval(timer.value)
-          timer.value = null
+    if (res.code === 200) {
+      ElMessage.success('验证码已发送，请注意查收')
+      
+      // 开始倒计时
+      countdown.value = 60
+      timer.value = window.setInterval(() => {
+        countdown.value--
+        if (countdown.value <= 0) {
+          if (timer.value) {
+            clearInterval(timer.value)
+            timer.value = null
+          }
         }
-      }
-    }, 1000)
+      }, 1000)
+    } else {
+      throw new Error(res.message || '发送验证码失败')
+    }
   } catch (error: any) {
     ElMessage.error(error.message || '发送验证码失败')
   }

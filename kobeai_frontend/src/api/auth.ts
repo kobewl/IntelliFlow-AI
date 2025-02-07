@@ -2,6 +2,7 @@ import axios from 'axios'
 import type { AxiosResponse } from 'axios'
 import type { User } from '../types/user'
 import request from '../utils/request'
+import { ApiResponse, LoginResponse, RegisterResponse, EmailCodeResponse } from '../types/api'
 
 export interface LoginRequest {
   username: string
@@ -319,7 +320,7 @@ export default api
 export const login = (data: {
   username: string
   password: string
-}) => {
+}): Promise<ApiResponse<LoginResponse>> => {
   return request({
     url: '/auth/login',
     method: 'post',
@@ -333,7 +334,7 @@ export const register = (data: {
   password: string
   email: string
   phone: string
-}) => {
+}): Promise<ApiResponse<RegisterResponse>> => {
   return request({
     url: '/auth/register',
     method: 'post',
@@ -342,7 +343,7 @@ export const register = (data: {
 }
 
 // 发送邮箱验证码
-export const sendEmailCode = (email: string) => {
+export const sendEmailCode = (email: string): Promise<ApiResponse<EmailCodeResponse>> => {
   return request({
     url: '/user/email/send',
     method: 'post',
@@ -351,7 +352,7 @@ export const sendEmailCode = (email: string) => {
 }
 
 // 验证邮箱验证码
-export const verifyEmailCode = (email: string, code: string) => {
+export const verifyEmailCode = (email: string, code: string): Promise<ApiResponse<EmailCodeResponse>> => {
   return request({
     url: '/user/email/verify',
     method: 'post',

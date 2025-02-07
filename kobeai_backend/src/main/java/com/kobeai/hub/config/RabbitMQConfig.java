@@ -1,6 +1,6 @@
 package com.kobeai.hub.config;
 
-import org.springframework.amqp.core.Queue;
+import org.springframework.amqp.core.*;
 import org.springframework.amqp.rabbit.connection.CachingConnectionFactory;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
@@ -12,6 +12,10 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class RabbitMQConfig {
 
+    public static final String EMAIL_EXCHANGE = "email.exchange";
+    public static final String EMAIL_QUEUE = "email.verification.queue";
+    public static final String EMAIL_ROUTING_KEY = "email.verification";
+
     // RabbitMQ连接配置
     @Bean
     public ConnectionFactory connectionFactory() {
@@ -22,10 +26,25 @@ public class RabbitMQConfig {
         return connectionFactory;
     }
 
-    // 邮件验证码队列
+    // 声明交换机
+    @Bean
+    public DirectExchange emailExchange() {
+        return new DirectExchange(EMAIL_EXCHANGE);
+    }
+
+    // 声明队列
     @Bean
     public Queue emailVerificationQueue() {
-        return new Queue("email.verification.queue", true);
+        return new Queue(EMAIL_QUEUE, true);
+    }
+
+    // 绑定队列到交换机
+    @Bean
+    public Binding bindingEmailQueue() {
+        return BindingBuilder
+                .bind(emailVerificationQueue())
+                .to(emailExchange())
+                .with(EMAIL_ROUTING_KEY);
     }
 
     // 配置消息转换器
