@@ -73,19 +73,21 @@ public class RedisConfig {
             RedisTemplate<String, Object> template = new RedisTemplate<>();
             template.setConnectionFactory(connectionFactory);
 
-            // 使用简单的字符串序列化器
+            // 使用 Jackson2JsonRedisSerializer 作为值序列化器
+            GenericJackson2JsonRedisSerializer jsonSerializer = new GenericJackson2JsonRedisSerializer(
+                    redisObjectMapper());
             StringRedisSerializer stringSerializer = new StringRedisSerializer();
 
-            // 设置所有的序列化器为字符串序列化器
+            // 设置key使用字符串序列化器，value使用JSON序列化器
             template.setKeySerializer(stringSerializer);
-            template.setValueSerializer(stringSerializer);
+            template.setValueSerializer(jsonSerializer);
             template.setHashKeySerializer(stringSerializer);
-            template.setHashValueSerializer(stringSerializer);
+            template.setHashValueSerializer(jsonSerializer);
             template.setStringSerializer(stringSerializer);
-            template.setDefaultSerializer(stringSerializer);
+            template.setDefaultSerializer(jsonSerializer);
 
             template.afterPropertiesSet();
-            log.info("Redis template configured successfully with StringRedisSerializer");
+            log.info("Redis template configured successfully with GenericJackson2JsonRedisSerializer");
 
             // 测试连接
             template.getConnectionFactory().getConnection().ping();
@@ -110,12 +112,14 @@ public class RedisConfig {
     public RedisCacheManager cacheManager(RedisConnectionFactory connectionFactory) {
         try {
             StringRedisSerializer stringSerializer = new StringRedisSerializer();
+            GenericJackson2JsonRedisSerializer jsonSerializer = new GenericJackson2JsonRedisSerializer(
+                    redisObjectMapper());
 
             // 默认配置
             RedisCacheConfiguration defaultConfig = RedisCacheConfiguration.defaultCacheConfig()
                     .entryTtl(Duration.ofHours(1))
                     .serializeKeysWith(RedisSerializationContext.SerializationPair.fromSerializer(stringSerializer))
-                    .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(stringSerializer))
+                    .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(jsonSerializer))
                     .disableCachingNullValues();
 
             // 针对不同类型的数据配置不同的过期时间

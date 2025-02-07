@@ -1,93 +1,56 @@
 import axios from 'axios'
+import type { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios'
 import { ElMessage } from 'element-plus'
 
 // 创建 axios 实例
-const request = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api',
-  timeout: 10000,
+const request: AxiosInstance = axios.create({
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8080/api', // 设置默认的 API 地址
+  timeout: 15000, // 请求超时时间
   headers: {
-    'Content-Type': 'application/json'
-  }
+    'Content-Type': 'application/json',
+  },
+  withCredentials: true // 允许跨域携带 cookie
 })
 
 // 请求拦截器
 request.interceptors.request.use(
-  (config) => {
-    console.log('Request URL:', config.baseURL + config.url) // 添加日志
-    
-    // 对于邮箱验证码相关的接口，不添加token
-    if (config.url?.includes('/user/email/')) {
-      return config
-    }
-    
+  (config: AxiosRequestConfig) => {
+    // 从 localStorage 获取 token
     const token = localStorage.getItem('token')
     if (token) {
-      config.headers.Authorization = `Bearer ${token}`
+      config.headers = {
+        ...config.headers,
+        Authorization: `Bearer ${token}`
+      }
     }
     return config
   },
   (error) => {
-    console.error('Request error:', error) // 添加日志
     return Promise.reject(error)
   }
 )
 
 // 响应拦截器
 request.interceptors.response.use(
-  (response) => {
-    console.log('Response:', response) // 添加日志
-    const { data } = response
-    
-    // 如果后端返回的不是标准格式，直接返回数据
-    if (!data.code) {
-      return response
+  (response: AxiosResponse) => {
+    const res = response.data
+    if (res.code === 200) {
+      return res
     }
-    
-    // 处理业务状态码
-    if (data.code === 200) {
-      return data
-    }
-    
-    // 处理业务错误
-    ElMessage.error(data.message || '请求失败')
-    return Promise.reject(new Error(data.message || '请求失败'))
+    // 处理其他状态码
+    ElMessage.error(res.message || '请求失败')
+    return Promise.reject(new Error(res.message || '请求失败'))
   },
   (error) => {
-    console.error('Response error:', error) // 添加日志
-    // 处理 HTTP 错误
-    if (error.response) {
-      const { status, data } = error.response
-      
-      switch (status) {
-        case 400:
-          ElMessage.error(data.message || '请求参数错误')
-          break
-        case 401:
-          ElMessage.error('登录已过期，请重新登录')
-          // 清除本地存储的认证信息
-          localStorage.removeItem('token')
-          localStorage.removeItem('user')
-          // 跳转到登录页
-          window.location.href = '/auth/login'
-          break
-        case 403:
-          ElMessage.error('没有权限访问该资源')
-          break
-        case 404:
-          ElMessage.error('请求的资源不存在')
-          break
-        case 500:
-          ElMessage.error('服务器内部错误')
-          break
-        default:
-          ElMessage.error('网络错误')
-      }
-    } else if (error.request) {
-      ElMessage.error('网络连接失败，请检查网络')
-    } else {
-      ElMessage.error('请求失败')
+    console.error('请求错误:', error)
+    // 处理网络错误
+    if (!error.response) {
+      ElMessage.error('网络错误，请检查您的网络连接')
+      return Promise.reject(new Error('网络错误，请检查您的网络连接'))
     }
-    
+    // 处理 HTTP 错误
+    const message = error.response.data?.message || '请求失败'
+    ElMessage.error(message)
     return Promise.reject(error)
   }
 )
