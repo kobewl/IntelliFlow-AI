@@ -24,7 +24,12 @@ export const useAuthStore = defineStore('auth', () => {
     const storedUser = localStorage.getItem('user')
     const storedToken = localStorage.getItem('token')
     if (storedUser) {
-      user.value = JSON.parse(storedUser)
+      const userData = JSON.parse(storedUser)
+      // 确保用户数据包含默认头像
+      if (!userData.avatar) {
+        userData.avatar = '/ai-avatar.png'
+      }
+      user.value = userData
     }
     if (storedToken) {
       token.value = storedToken
@@ -54,8 +59,13 @@ export const useAuthStore = defineStore('auth', () => {
   // 登录
   async function login(username: string, password: string) {
     const response = await authApi.login(username, password)
-    if (response.code === 200) {
-      setUser(response.data.user)
+    if (response.code === 200 && response.data) {
+      const userData = response.data.user
+      // 确保用户数据包含默认头像
+      if (!userData.avatar) {
+        userData.avatar = '/ai-avatar.png'
+      }
+      setUser(userData)
       setToken(response.data.token)
     }
     return response
@@ -80,8 +90,13 @@ export const useAuthStore = defineStore('auth', () => {
   // 获取用户信息
   async function getProfile() {
     const response = await authApi.getProfile()
-    if (response.code === 200) {
-      setUser(response.data)
+    if (response.code === 200 && response.data) {
+      const userData = response.data
+      // 确保用户数据包含默认头像
+      if (!userData.avatar) {
+        userData.avatar = '/ai-avatar.png'
+      }
+      setUser(userData)
     }
     return response
   }

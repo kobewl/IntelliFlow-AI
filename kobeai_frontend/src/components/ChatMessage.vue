@@ -3,7 +3,12 @@
     <!-- 左侧消息（助手） -->
     <template v-if="role === MessageRole.ASSISTANT">
       <div class="avatar">
-        <el-avatar :size="40" :icon="ChatRound" class="assistant-avatar" />
+        <el-avatar 
+          :size="40" 
+          :src="aiAvatar"
+          class="assistant-avatar"
+          @error="handleAvatarError"
+        />
       </div>
       <div class="content">
         <div class="bubble">
@@ -22,26 +27,20 @@
         <div class="time">{{ formatTime(createdAt) }}</div>
       </div>
       <div class="avatar">
-        <template v-if="user?.avatar">
-          <el-image
-            class="user-avatar-image"
-            :src="user.avatar"
-            fit="cover"
-          >
-            <template #error>
-              <el-avatar :size="40" :icon="User" class="user-avatar-fallback" />
-            </template>
-          </el-image>
-        </template>
-        <template v-else>
-          <el-avatar :size="40" :icon="User" class="user-avatar-fallback" />
-        </template>
+        <el-avatar 
+          :size="40"
+          class="user-avatar"
+          :style="{ background: generateAvatarBackground(user?.username || '') }"
+        >
+          {{ user?.username?.charAt(0)?.toUpperCase() || 'U' }}
+        </el-avatar>
       </div>
     </template>
   </div>
 </template>
 
 <script setup lang="ts">
+import { ref } from 'vue'
 import { User, ChatRound } from '@element-plus/icons-vue'
 import MarkdownRenderer from './MarkdownRenderer.vue'
 import { MessageRole } from '../types/chat'
@@ -50,6 +49,15 @@ import { useAuthStore } from '../stores/auth'
 
 const authStore = useAuthStore()
 const { user } = storeToRefs(authStore)
+
+// 设置固定的AI头像
+const aiAvatar = ref('/avatars/ai-avatar.png')
+
+// 头像加载失败处理
+const handleAvatarError = () => {
+  // 如果加载失败，使用备用头像
+  aiAvatar.value = '/avatars/default-ai-avatar.png'
+}
 
 defineProps<{
   role: MessageRole
@@ -72,6 +80,22 @@ function formatTime(timestamp: string) {
   
   // 超过24小时显示具体日期
   return date.toLocaleString()
+}
+
+// 生成头像背景色
+function generateAvatarBackground(username: string): string {
+  const colors = [
+    'linear-gradient(135deg, #FF6B6B 0%, #FF4949 100%)',
+    'linear-gradient(135deg, #4ECDC4 0%, #45B7AF 100%)',
+    'linear-gradient(135deg, #45B649 0%, #31A032 100%)',
+    'linear-gradient(135deg, #FF851B 0%, #FF7701 100%)',
+    'linear-gradient(135deg, #7F00FF 0%, #6B00DB 100%)',
+    'linear-gradient(135deg, #00B2FF 0%, #0085FF 100%)'
+  ]
+  
+  // 根据用户名生成固定的颜色索引
+  const index = username.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) % colors.length
+  return colors[index]
 }
 
 defineOptions({
@@ -306,5 +330,30 @@ export default {
 :deep(pre::-webkit-scrollbar-track) {
   background: rgba(0, 0, 0, 0.1);
   border-radius: 3px;
+}
+
+.assistant-avatar {
+  background: #fff !important;
+  border: 2px solid #e8e8e8;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s ease;
+}
+
+.assistant-avatar:hover {
+  transform: scale(1.05);
+}
+
+.user-avatar {
+  color: white !important;
+  font-weight: 600 !important;
+  font-size: 16px !important;
+  border: none !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s ease;
+}
+
+.user-avatar:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
 }
 </style> 

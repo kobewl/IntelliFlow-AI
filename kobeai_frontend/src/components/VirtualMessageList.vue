@@ -20,46 +20,35 @@
             <el-avatar 
               :size="36"
               class="ai-avatar"
-            >
-              <el-icon><ChatRound /></el-icon>
-            </el-avatar>
+              src="/images/ai-avatar.png"
+            />
           </template>
           <template v-else>
-            <div class="user-info">
-              <template v-if="user?.avatar">
-                <el-image
-                  :src="user.avatar"
-                  class="user-avatar"
-                  fit="cover"
-                >
-                  <template #error>
-                    <el-avatar 
-                      :size="36"
-                      class="user-avatar"
-                    >
-                      <el-icon><UserFilled /></el-icon>
-                    </el-avatar>
-                  </template>
-                </el-image>
-              </template>
-              <template v-else>
-                <el-avatar 
-                  :size="36"
-                  class="user-avatar"
-                >
-                  <el-icon><UserFilled /></el-icon>
-                </el-avatar>
-              </template>
-              <el-button 
-                v-if="user?.userRole === 'NORMAL'"
-                class="upgrade-btn" 
-                type="primary" 
-                size="small"
-                @click="handleUpgrade"
+            <template v-if="user?.avatar">
+              <el-avatar
+                :size="36"
+                :src="user.avatar"
+                class="user-avatar"
+              />
+            </template>
+            <template v-else>
+              <el-avatar 
+                :size="36"
+                class="user-avatar"
+                :style="{ background: generateAvatarBackground(user?.username || '') }"
               >
-                升级VIP
-              </el-button>
-            </div>
+                {{ user?.username?.charAt(0)?.toUpperCase() || 'U' }}
+              </el-avatar>
+            </template>
+            <el-button 
+              v-if="user?.userRole === 'NORMAL'"
+              class="upgrade-btn" 
+              type="primary" 
+              size="small"
+              @click="handleUpgrade"
+            >
+              升级VIP
+            </el-button>
           </template>
         </div>
         <div class="message-content">
@@ -364,6 +353,22 @@ getCurrentPlan()
 const handleUpgrade = () => {
   router.push('/vip-plans')
 }
+
+// 在 script setup 部分添加 generateAvatarBackground 函数
+const generateAvatarBackground = (username: string): string => {
+  const colors = [
+    'linear-gradient(135deg, #FF6B6B 0%, #FF4949 100%)',
+    'linear-gradient(135deg, #4ECDC4 0%, #45B7AF 100%)',
+    'linear-gradient(135deg, #45B649 0%, #31A032 100%)',
+    'linear-gradient(135deg, #FF851B 0%, #FF7701 100%)',
+    'linear-gradient(135deg, #7F00FF 0%, #6B00DB 100%)',
+    'linear-gradient(135deg, #00B2FF 0%, #0085FF 100%)'
+  ]
+  
+  // 根据用户名生成固定的颜色索引
+  const index = username.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) % colors.length
+  return colors[index]
+}
 </script>
 
 <script lang="ts">
@@ -626,17 +631,25 @@ export default {
     border-radius: 50%;
     overflow: hidden;
     flex-shrink: 0;
+    position: relative;
     
     :deep(.el-avatar) {
       width: 100% !important;
       height: 100% !important;
-      background: #f3f4f6;
-      color: #6b7280;
-      font-size: 20px;
-      border: 1px solid #e5e7eb;
+      border: none;
       
-      .el-icon {
-        font-size: 20px;
+      &.ai-avatar {
+        background: #fff;
+        padding: 2px;
+        border: 2px solid #e8e8e8;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+      
+      &.user-avatar {
+        color: white;
+        font-weight: 600;
+        font-size: 16px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
       }
     }
   }
@@ -691,21 +704,13 @@ export default {
   }
 
   .upgrade-btn {
+    position: absolute;
+    bottom: -20px;
+    left: 50%;
+    transform: translateX(-50%);
     font-size: 12px;
-    padding: 4px 8px;
+    padding: 2px 8px;
     height: 24px;
-    border-radius: 12px;
-    background: linear-gradient(45deg, var(--el-color-primary), var(--el-color-primary-light-3));
-    border: none;
-    color: white;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    white-space: nowrap;
-    
-    &:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 2px 8px rgba(var(--el-color-primary-rgb), 0.3);
-    }
   }
 
   @media (max-width: 768px) {

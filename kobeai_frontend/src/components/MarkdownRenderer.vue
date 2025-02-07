@@ -3,7 +3,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref, computed, nextTick } from 'vue'
+import { onMounted, ref, computed, nextTick, watch } from 'vue'
 import MarkdownIt from 'markdown-it'
 import Prism from 'prismjs'
 // 导入 Prism 核心样式
@@ -79,13 +79,17 @@ md.configure({
 
 const renderedContent = ref('')
 
-onMounted(() => {
-  renderedContent.value = md.render(props.content)
-  // 确保在下一个 tick 执行高亮
-  nextTick(() => {
-    Prism.highlightAll()
-  })
-})
+// 监听内容变化
+watch(
+  () => props.content,
+  (newContent: string) => {
+    renderedContent.value = md.render(newContent)
+    nextTick(() => {
+      Prism.highlightAll()
+    })
+  },
+  { immediate: true }
+)
 
 defineOptions({
   name: 'MarkdownRenderer'

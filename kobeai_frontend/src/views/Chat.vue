@@ -103,17 +103,22 @@ import {
   Position,
   Paperclip
 } from '@element-plus/icons-vue'
-import { useAuthStore } from '../store/auth'
+import { useAuthStore } from '../stores/auth'
 import { useChatStore } from '../store/chat'
 import ConversationList from '../components/ConversationList.vue'
 import VirtualMessageList from '../components/VirtualMessageList.vue'
 import UserProfile from '../components/UserProfile.vue'
 import { MessageRole } from '../types/chat'
 import { presetResponses, getRandomResponse } from '../utils/presets'
+import { chatApi } from '../api/chat'
+import { marked } from 'marked'
+import hljs from 'highlight.js'
+import 'highlight.js/styles/github.css'
 
 // Store 实例
-const chatStore = useChatStore()
 const authStore = useAuthStore()
+const chatStore = useChatStore()
+const { user } = storeToRefs(authStore)
 const { 
   conversations,
   currentConversationId,
@@ -124,6 +129,10 @@ const {
 
 const messageInput = ref('')
 const fileUploadRef = ref()
+
+// 使用固定的AI头像
+const aiAvatar = '/avatars/ai-avatar.png'
+const userAvatar = computed(() => user.value?.avatar || '/avatars/default-avatar.png')
 
 // 是否可以发送消息
 const canSendMessage = computed(() => {
