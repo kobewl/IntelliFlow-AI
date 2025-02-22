@@ -8,7 +8,11 @@
           :src="aiAvatar"
           class="assistant-avatar"
           @error="handleAvatarError"
-        />
+        >
+          <template #error>
+            <el-icon><ChatRound /></el-icon>
+          </template>
+        </el-avatar>
       </div>
       <div class="content">
         <div class="bubble">
@@ -51,12 +55,12 @@ const authStore = useAuthStore()
 const { user } = storeToRefs(authStore)
 
 // 设置固定的AI头像
-const aiAvatar = ref('/avatars/ai-avatar.png')
+const aiAvatar = ref('/images/ai-avatar.png')
 
 // 头像加载失败处理
 const handleAvatarError = () => {
   // 如果加载失败，使用备用头像
-  aiAvatar.value = '/avatars/default-ai-avatar.png'
+  aiAvatar.value = '/images/fallback/default-ai-avatar.png'
 }
 
 defineProps<{
@@ -109,7 +113,7 @@ export default {
 }
 </script>
 
-<style scoped>
+<style scoped lang="scss">
 .chat-item {
   display: flex;
   align-items: flex-start;
@@ -145,9 +149,9 @@ export default {
   width: 40px !important;
   height: 40px !important;
   border-radius: 50% !important;
-  background: #fff;
-  border: none;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
   transition: transform 0.2s ease;
 }
 
@@ -333,14 +337,23 @@ export default {
 }
 
 .assistant-avatar {
-  background: #fff !important;
-  border: 2px solid #e8e8e8;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  width: 40px !important;
+  height: 40px !important;
+  border-radius: 50% !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
   transition: transform 0.2s ease;
-}
-
-.assistant-avatar:hover {
-  transform: scale(1.05);
+  
+  :deep(img) {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  
+  &:hover {
+    transform: scale(1.05);
+  }
 }
 
 .user-avatar {
@@ -350,10 +363,10 @@ export default {
   border: none !important;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   transition: transform 0.2s ease;
-}
-
-.user-avatar:hover {
-  transform: scale(1.05);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+  
+  &:hover {
+    transform: scale(1.05);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+  }
 }
 </style> 

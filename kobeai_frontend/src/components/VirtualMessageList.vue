@@ -20,8 +20,19 @@
             <el-avatar 
               :size="36"
               class="ai-avatar"
-              src="/images/ai-avatar.png"
-            />
+              :src="aiAvatarUrl"
+              @error="handleAvatarError"
+              @load="handleAvatarLoad"
+              :style="{
+                background: 'transparent',
+                border: 'none',
+                boxShadow: 'none'
+              }"
+            >
+              <template #error>
+                <el-icon><ChatRound /></el-icon>
+              </template>
+            </el-avatar>
           </template>
           <template v-else>
             <template v-if="user?.avatar">
@@ -369,6 +380,42 @@ const generateAvatarBackground = (username: string): string => {
   const index = username.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) % colors.length
   return colors[index]
 }
+
+// 添加AI头像相关的状态
+const aiAvatarLoaded = ref(false)
+const aiAvatarError = ref(false)
+
+// AI头像URL数组
+const aiAvatarUrls = [
+  '/images/ai-avatar.png',
+  '/images/fallback/default-ai-avatar.png',
+  'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxjaXJjbGUgY3g9IjEyIiBjeT0iMTIiIHI9IjEwIi8+PHBhdGggZD0iTTIgMTJoMjAiLz48L3N2Zz4=' // 内嵌的SVG作为最后的备用
+]
+
+// 当前使用的头像URL
+const currentAiAvatarIndex = ref(0)
+const aiAvatarUrl = computed(() => aiAvatarUrls[currentAiAvatarIndex.value])
+
+// 改进的错误处理函数
+const handleAvatarError = (event: Event) => {
+  const target = event.target as HTMLImageElement
+  console.error(`AI头像加载失败: ${target.src}`)
+  
+  // 尝试下一个备用头像
+  if (currentAiAvatarIndex.value < aiAvatarUrls.length - 1) {
+    currentAiAvatarIndex.value++
+    target.src = aiAvatarUrl.value
+  } else {
+    aiAvatarError.value = true
+    console.error('所有AI头像都加载失败')
+  }
+}
+
+// 头像加载成功处理
+const handleAvatarLoad = () => {
+  aiAvatarLoaded.value = true
+  aiAvatarError.value = false
+}
 </script>
 
 <script lang="ts">
@@ -639,10 +686,16 @@ export default {
       border: none;
       
       &.ai-avatar {
-        background: #fff;
-        padding: 2px;
-        border: 2px solid #e8e8e8;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        background: transparent !important;
+        padding: 0 !important;
+        border: none !important;
+        box-shadow: none !important;
+        
+        img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
       }
       
       &.user-avatar {
