@@ -94,17 +94,17 @@ public class UserServiceImpl implements UserService {
         try {
             // 检查用户名是否已存在
             if (userRepository.findByUsername(request.getUsername()).isPresent()) {
-                return ApiResponse.error("用户名已存在");
+                return ApiResponse.error("Username has been exist");
             }
 
             // 检查邮箱是否已存在
             if (userRepository.findByEmail(request.getEmail()).isPresent()) {
-                return ApiResponse.error("邮箱已被注册");
+                return ApiResponse.error("Emile has bean exist");
             }
 
             // 检查手机号是否已存在
             if (userRepository.findByPhone(request.getPhone()).isPresent()) {
-                return ApiResponse.error("手机号已被注册");
+                return ApiResponse.error("Mobile phone number has been registered");
             }
 
             // 创建新用户
@@ -117,7 +117,7 @@ public class UserServiceImpl implements UserService {
 
             // 保存用户
             User savedUser = userRepository.save(user);
-            log.info("新用户注册成功: {}", savedUser.getUsername());
+            log.info("New user has been registered: {}", savedUser.getUsername());
 
             // 生成token并返回
             String token = jwtUtil.generateToken(savedUser);
@@ -125,10 +125,10 @@ public class UserServiceImpl implements UserService {
             result.put("token", token);
             result.put("user", savedUser);
 
-            return ApiResponse.success("注册成功", result);
+            return ApiResponse.success("Registered Success", result);
         } catch (Exception e) {
-            log.error("用户注册失败", e);
-            return ApiResponse.error("注册失败: " + e.getMessage());
+            log.error("User Registered Error", e);
+            return ApiResponse.error("Registered Error: " + e.getMessage());
         }
     }
 
@@ -145,7 +145,7 @@ public class UserServiceImpl implements UserService {
             return ApiResponse.success("用户角色更新成功");
         } catch (Exception e) {
             log.error("更新用户角色失败", e);
-            return ApiResponse.error("更新失败: " + e.getMessage());
+            return ApiResponse.error("Update Error: " + e.getMessage());
         }
     }
 
@@ -460,6 +460,11 @@ public class UserServiceImpl implements UserService {
         return userRepository.countByUserRole(role);
     }
 
+    /**
+     * 生成6位随机验证码
+     *
+     * @return 验证码
+     */
     @Override
     public ApiResponse<?> sendEmailVerificationCode(String email) {
         try {
@@ -533,6 +538,8 @@ public class UserServiceImpl implements UserService {
     // 生成6位随机验证码
     private String generateVerificationCode() {
         Random random = new Random();
+
+        // 使用 StringBuilder 拼接验证码
         StringBuilder code = new StringBuilder();
         for (int i = 0; i < 6; i++) {
             code.append(random.nextInt(10));
