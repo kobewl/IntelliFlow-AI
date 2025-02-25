@@ -10,6 +10,8 @@ export interface ChatMessage {
   content: string
   role: MessageRole
   createdAt: string
+  updatedAt?: string
+  isDeleted?: boolean
 }
 
 export interface Conversation {

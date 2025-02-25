@@ -99,8 +99,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 path.startsWith("/api/webjars/") ||
                 path.startsWith("/api/swagger-resources") ||
                 path.startsWith("/api/v2/api-docs") ||
-                path.startsWith("/api/v3/api-docs") ||
-                path.equals("/test/health");
+                path.startsWith("/api/v3/api-docs");
     }
 
     private void sendUnauthorizedError(HttpServletResponse response, String message) throws IOException {

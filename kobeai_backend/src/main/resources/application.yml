@@ -10,6 +10,7 @@ spring:
       max-file-size: 10MB
       max-request-size: 100MB
 
+# JPA配置
   jpa:
     show-sql: true
     hibernate:
@@ -19,6 +20,7 @@ spring:
         dialect: org.hibernate.dialect.MySQL8Dialect
         format_sql: true
 
+# Redis配置
   redis:
     host: 39.98.107.158
     port: 6379
@@ -67,15 +69,18 @@ server:
   servlet:
     context-path: /api
 
+# JWT配置
 jwt:
   secret: kobeai-jwt-secret-key-must-be-at-least-256-bits-long-for-security
   expiration: 86400000
 
+# DeepSeek API Configuration
 deepseek:
   api:
     key: sk-ae9973eaca5748ed90a87a4e4e4784e6
     base-url: https://api.deepseek.com/v1
 
+# AI Configuration
 ai:
   deepseek:
     base-url: https://api.deepseek.com/v1

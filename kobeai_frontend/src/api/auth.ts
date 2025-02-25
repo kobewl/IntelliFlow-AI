@@ -145,7 +145,7 @@ export function shouldRefreshToken(): boolean {
 
 // 创建axios实例
 export const api = axios.create({
-  baseURL: 'http://localhost:8080/api',
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5173/api',
   timeout: 30000,
   headers: {
     'Content-Type': 'application/json'

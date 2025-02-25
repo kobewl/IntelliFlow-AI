@@ -23,6 +23,11 @@ public interface MessageService {
     void deleteByConversationId(Long conversationId);
 
     /**
+     * 删除单条消息
+     */
+    void deleteMessage(Long messageId);
+
+    /**
      * 根据会话查询消息
      */
     List<Message> findByConversation(Conversation conversation, Pageable pageable);

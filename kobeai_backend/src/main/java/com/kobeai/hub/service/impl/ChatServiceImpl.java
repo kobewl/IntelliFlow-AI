@@ -165,9 +165,9 @@ public class ChatServiceImpl implements ChatService {
     @Override
     @Transactional
     public void deleteConversation(Long conversationId) {
-        // 先删除所有相关消息
-        messageRepository.deleteByConversationId(conversationId);
-        // 再删除会话
+        // 使用软删除替代物理删除消息
+        messageRepository.softDeleteByConversationId(conversationId);
+        // 仍然删除会话本身（这里可以考虑为会话也添加软删除功能）
         conversationRepository.deleteById(conversationId);
     }
 

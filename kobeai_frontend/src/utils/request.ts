@@ -4,7 +4,7 @@ import { ElMessage } from 'element-plus'
 
 // 创建 axios 实例
 const request: AxiosInstance = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8080/api', // 设置默认的 API 地址
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5173/api', // 设置默认的 API 地址
   timeout: 15000, // 请求超时时间
   headers: {
     'Content-Type': 'application/json',

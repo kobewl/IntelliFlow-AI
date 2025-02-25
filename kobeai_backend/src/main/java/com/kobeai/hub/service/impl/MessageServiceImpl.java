@@ -51,11 +51,28 @@ public class MessageServiceImpl implements MessageService {
     @CacheEvict(value = "messages", allEntries = true)
     public void deleteByConversationId(Long conversationId) {
         log.debug("删除会话消息, conversationId: {}", conversationId);
-        messageRepository.deleteByConversationId(conversationId);
+        // 使用软删除替代物理删除
+        messageRepository.softDeleteByConversationId(conversationId);
 
         // 删除相关缓存
         String messagePattern = RedisKeyConstant.CHAT_MESSAGES_KEY + conversationId + "*";
         Set<String> keys = redisTemplate.keys(messagePattern);
+        if (keys != null && !keys.isEmpty()) {
+            redisTemplate.delete(keys);
+        }
+    }
+
+    @Override
+    @Transactional
+    @CacheEvict(value = "messages", allEntries = true)
+    public void deleteMessage(Long messageId) {
+        log.debug("删除单条消息, messageId: {}", messageId);
+        // 使用软删除
+        messageRepository.softDeleteMessage(messageId);
+
+        // 清除相关缓存
+        // 由于不知道消息所属会话，清除所有消息缓存
+        Set<String> keys = redisTemplate.keys("messages::*");
         if (keys != null && !keys.isEmpty()) {
             redisTemplate.delete(keys);
         }
@@ -72,6 +89,14 @@ public class MessageServiceImpl implements MessageService {
     @CachePut(value = "messages", key = "'conv:' + #result.conversation.id + ':msg:' + #result.id")
     public Message saveMessage(Message message) {
         log.debug("保存新消息, conversationId: {}", message.getConversation().getId());
+        // 确保新消息未被标记为删除
+        message.setIsDeleted(false);
+
+        // 如果是更新消息，保持更新时间为当前时间
+        if (message.getId() != null) {
+            message.setUpdatedAt(LocalDateTime.now());
+        }
+
         Message savedMessage = messageRepository.save(message);
 
         // 清除相关的缓存
