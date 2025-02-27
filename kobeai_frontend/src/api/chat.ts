@@ -260,6 +260,21 @@ export const chatApi = {
                           const parsedData = JSON.parse(data)
                           if (Array.isArray(parsedData)) {
                             for (const item of parsedData) {
+                              // 处理 event:done 的情况
+                              if (item.data && item.data.startsWith('event:done')) {
+                                continue
+                              }
+                              
+                              // 处理普通文本内容
+                              if (item.data && typeof item.data === 'string') {
+                                fullResponse += item.data
+                                onUpdate?.(fullResponse)
+                                hasReceivedData = true
+                                keepAliveCount = 0
+                                continue
+                              }
+                              
+                              // 处理对象类型的数据
                               if (item.data && typeof item.data === 'object') {
                                 if (item.data.choices && item.data.choices[0]?.delta?.content) {
                                   const content = item.data.choices[0].delta.content
@@ -270,7 +285,20 @@ export const chatApi = {
                                 }
                               }
                             }
+                          } else if (typeof parsedData === 'string') {
+                            // 处理纯文本数据
+                            fullResponse += parsedData
+                            onUpdate?.(fullResponse)
+                            hasReceivedData = true
+                            keepAliveCount = 0
+                          } else if (parsedData.data && typeof parsedData.data === 'string') {
+                            // 处理包装在 data 字段中的文本
+                            fullResponse += parsedData.data
+                            onUpdate?.(fullResponse)
+                            hasReceivedData = true
+                            keepAliveCount = 0
                           } else if (parsedData.data && parsedData.data.choices) {
+                            // 处理标准的 choices/delta 格式
                             const content = parsedData.data.choices[0]?.delta?.content
                             if (content) {
                               fullResponse += content
@@ -280,6 +308,14 @@ export const chatApi = {
                             }
                           }
                         } catch (e) {
+                          // 如果解析 JSON 失败，尝试直接使用数据
+                          const content = data.trim()
+                          if (content && !content.startsWith('event:done') && content !== '[DONE]') {
+                            fullResponse += content
+                            onUpdate?.(fullResponse)
+                            hasReceivedData = true
+                            keepAliveCount = 0
+                          }
                           console.warn('Failed to parse SSE data:', e)
                         }
                       }
