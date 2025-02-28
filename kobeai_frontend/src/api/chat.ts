@@ -10,6 +10,8 @@ export interface ChatMessage {
   content: string
   role: MessageRole
   createdAt: string
+  updatedAt?: string
+  isDeleted?: boolean
 }
 
 export interface Conversation {
@@ -185,6 +187,8 @@ export const chatApi = {
               clearAuth()
               window.location.href = '/auth/login'
               throw new Error('认证已过期，请重新登录')
+            } else if (response.status === 402) {
+              throw new Error('账户余额不足，请充值后继续使用')
             }
             throw new Error(`发送消息失败: ${response.status}`)
           }
@@ -258,48 +262,9 @@ export const chatApi = {
                         try {
                           // 处理嵌套的数据结构
                           const parsedData = JSON.parse(data)
-                          if (Array.isArray(parsedData)) {
-                            for (const item of parsedData) {
-                              // 处理 event:done 的情况
-                              if (item.data && item.data.startsWith('event:done')) {
-                                continue
-                              }
-                              
-                              // 处理普通文本内容
-                              if (item.data && typeof item.data === 'string') {
-                                fullResponse += item.data
-                                onUpdate?.(fullResponse)
-                                hasReceivedData = true
-                                keepAliveCount = 0
-                                continue
-                              }
-                              
-                              // 处理对象类型的数据
-                              if (item.data && typeof item.data === 'object') {
-                                if (item.data.choices && item.data.choices[0]?.delta?.content) {
-                                  const content = item.data.choices[0].delta.content
-                                  fullResponse += content
-                                  onUpdate?.(fullResponse)
-                                  hasReceivedData = true
-                                  keepAliveCount = 0
-                                }
-                              }
-                            }
-                          } else if (typeof parsedData === 'string') {
-                            // 处理纯文本数据
-                            fullResponse += parsedData
-                            onUpdate?.(fullResponse)
-                            hasReceivedData = true
-                            keepAliveCount = 0
-                          } else if (parsedData.data && typeof parsedData.data === 'string') {
-                            // 处理包装在 data 字段中的文本
-                            fullResponse += parsedData.data
-                            onUpdate?.(fullResponse)
-                            hasReceivedData = true
-                            keepAliveCount = 0
-                          } else if (parsedData.data && parsedData.data.choices) {
-                            // 处理标准的 choices/delta 格式
-                            const content = parsedData.data.choices[0]?.delta?.content
+                          
+                          // 处理函数，用于提取内容并更新
+                          const processContent = (content: string) => {
                             if (content) {
                               fullResponse += content
                               onUpdate?.(fullResponse)
@@ -307,15 +272,48 @@ export const chatApi = {
                               keepAliveCount = 0
                             }
                           }
-                        } catch (e) {
-                          // 如果解析 JSON 失败，尝试直接使用数据
-                          const content = data.trim()
-                          if (content && !content.startsWith('event:done') && content !== '[DONE]') {
-                            fullResponse += content
-                            onUpdate?.(fullResponse)
-                            hasReceivedData = true
-                            keepAliveCount = 0
+                          
+                          // 处理数组格式的响应
+                          if (Array.isArray(parsedData)) {
+                            for (const item of parsedData) {
+                              // 处理数组中的每个项目
+                              if (item.data && typeof item.data === 'object') {
+                                // 处理标准格式
+                                if (item.data.choices && item.data.choices[0]?.delta?.content) {
+                                  processContent(item.data.choices[0].delta.content)
+                                }
+                                // 处理可能的替代格式
+                                else if (item.data.content) {
+                                  processContent(item.data.content)
+                                }
+                                // 处理直接包含内容的格式
+                                else if (item.content) {
+                                  processContent(item.content)
+                                }
+                              }
+                            }
+                          } 
+                          // 处理对象格式的响应
+                          else {
+                            // 处理标准格式
+                            if (parsedData.data && parsedData.data.choices) {
+                              const content = parsedData.data.choices[0]?.delta?.content
+                              processContent(content)
+                            }
+                            // 处理可能的替代格式
+                            else if (parsedData.data && parsedData.data.content) {
+                              processContent(parsedData.data.content)
+                            }
+                            // 处理直接包含内容的格式
+                            else if (parsedData.content) {
+                              processContent(parsedData.content)
+                            }
+                            // 处理纯文本格式
+                            else if (typeof parsedData === 'string') {
+                              processContent(parsedData)
+                            }
                           }
+                        } catch (e) {
                           console.warn('Failed to parse SSE data:', e)
                         }
                       }
@@ -467,4 +465,4 @@ export const chatApi = {
 }
 
 export type { ChatMessage, Conversation, FileMessage }
-export default apiInstance 
+export default apiInstance
