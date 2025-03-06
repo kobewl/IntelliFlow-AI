@@ -2,12 +2,16 @@ package com.kobeai.hub.service.impl;
 
 import com.kobeai.hub.model.PromptTemplate;
 import com.kobeai.hub.repository.PromptTemplateRepository;
+import com.kobeai.hub.service.compression.CompressionStrategy;
+import com.kobeai.hub.service.factory.TemplateFactory;
+import com.kobeai.hub.service.observer.TemplateUpdateObserver;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -29,14 +33,45 @@ class TemplateServiceTest {
     private TemplateScoring templateScoring;
 
     @Mock
-    private SemanticCompressor semanticCompressor;
+    private TemplateFactory templateFactory;
+
+    @Mock
+    private CompressionStrategy compressionStrategy;
 
     @InjectMocks
     private TemplateService templateService;
 
+    private List<CompressionStrategy> compressionStrategies;
+    private List<TemplateUpdateObserver> updateObservers;
+
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
+        
+        // 初始化压缩策略列表
+        compressionStrategies = new ArrayList<>();
+        compressionStrategies.add(compressionStrategy);
+        
+        // 初始化观察者列表
+        updateObservers = new ArrayList<>();
+        
+        // 设置压缩策略的行为
+        when(compressionStrategy.isApplicable(any())).thenReturn(true);
+        when(compressionStrategy.compress(any(), anyInt())).thenReturn("Compressed content");
+        when(compressionStrategy.getStrategyName()).thenReturn("semantic");
+        
+        // 通过反射设置私有字段
+        try {
+            java.lang.reflect.Field strategiesField = TemplateService.class.getDeclaredField("compressionStrategies");
+            strategiesField.setAccessible(true);
+            strategiesField.set(templateService, compressionStrategies);
+            
+            java.lang.reflect.Field observersField = TemplateService.class.getDeclaredField("updateObservers");
+            observersField.setAccessible(true);
+            observersField.set(templateService, updateObservers);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to set up test dependencies", e);
+        }
     }
 
     @Test
@@ -85,12 +120,6 @@ class TemplateServiceTest {
         String content = "This is a test content with some code: public class Test { }";
         int maxTokens = 50;
 
-        // 设置模拟行为
-        when(contentAnalyzer.analyzeStructure(content))
-                .thenReturn(mock(java.util.Map.class));
-        when(semanticCompressor.compress(content, maxTokens))
-                .thenReturn("Compressed content");
-
         // 执行测试
         String result = templateService.compressContent(content, maxTokens);
 
@@ -100,7 +129,7 @@ class TemplateServiceTest {
 
         // 验证方法调用
         verify(contentAnalyzer).analyzeStructure(content);
-        verify(semanticCompressor).compress(content, maxTokens);
+        verify(compressionStrategy).compress(content, maxTokens);
     }
 
     @Test
@@ -114,22 +143,20 @@ class TemplateServiceTest {
         template.setUsageCount(10);
         template.setAverageScore(80.0);
 
+        // 添加一个测试观察者
+        TemplateUpdateObserver observer = mock(TemplateUpdateObserver.class);
+        updateObservers.add(observer);
+
         // 设置模拟行为
         when(templateRepository.findById(templateId))
                 .thenReturn(java.util.Optional.of(template));
-        when(templateRepository.save(any(PromptTemplate.class)))
-                .thenReturn(template);
 
         // 执行测试
         templateService.updateTemplateStats(templateId, score);
 
-        // 验证结果
-        assertEquals(11, template.getUsageCount());
-        assertTrue(template.getAverageScore() > 80.0);
-
-        // 验证方法调用
+        // 验证观察者被调用
+        verify(observer).onTemplateUpdate(template, score);
         verify(templateRepository).findById(templateId);
-        verify(templateRepository).save(template);
     }
 
     @Test
@@ -154,4 +181,4 @@ class TemplateServiceTest {
         // 验证方法调用
         verify(templateRepository).findByEstimatedTokensBetween(minTokens, maxTokens);
     }
-}
+} 
