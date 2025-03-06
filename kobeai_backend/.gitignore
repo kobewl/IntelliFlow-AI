@@ -51,7 +51,6 @@ application-*.yml
 *.sqlite
 *.sqlite3
 /data/
-*.sql
 !schema.sql
 
 # Security
