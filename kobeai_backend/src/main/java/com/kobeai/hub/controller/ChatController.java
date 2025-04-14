@@ -1,17 +1,25 @@
 package com.kobeai.hub.controller;
 
+import com.kobeai.hub.constant.UserConstant;
 import com.kobeai.hub.dto.request.ChatRequest;
 import com.kobeai.hub.dto.response.ApiResponse;
+import com.kobeai.hub.model.AIPlatform;
+import com.kobeai.hub.model.Platform;
 import com.kobeai.hub.model.User;
+import com.kobeai.hub.repository.AIPlatformRepository;
 import com.kobeai.hub.service.ChatService;
 import com.kobeai.hub.service.UserService;
+import com.kobeai.hub.service.impl.ChatServiceImpl;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import io.swagger.annotations.ApiParam;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import lombok.extern.slf4j.Slf4j;
+import java.util.List;
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/chat")
@@ -22,6 +30,9 @@ public class ChatController {
 
     private final ChatService chatService;
     private final UserService userService;
+    
+    @Autowired
+    private AIPlatformRepository aiPlatformRepository;
 
     @GetMapping("/conversations")
     @ApiOperation(value = "获取所有会话")
@@ -90,16 +101,38 @@ public class ChatController {
     @PostMapping("/completions")
     @ApiOperation(value = "发送消息", notes = "发送消息到AI助手并获取回复")
     public SseEmitter sendMessage(@RequestBody ChatRequest request,
-            @RequestHeader("Authorization") String authHeader) {
+            @RequestHeader("Authorization") String authHeader, @RequestParam(required = true) String platformType) {
         log.info("收到发送消息请求 - message: {}, conversationId: {}, authHeader: {}",
                 request.getMessage(),
-                request.getConversationId(),
-                authHeader.substring(0, Math.min(authHeader.length(), 20)) + "...");
+                request.getConversationId());
         try {
             // 获取当前用户
             User user = userService.getUserProfile(authHeader);
+
+            // 尝试转换平台类型字符串为枚举
+            Platform platform;
+            try {
+                platform = Platform.valueOf(platformType);
+            } catch (IllegalArgumentException e) {
+                log.error("无效的平台类型: {}", platformType);
+                throw new RuntimeException("无效的平台类型: " + platformType);
+            }
+            
+            // 查找平台
+            List<AIPlatform> allPlatforms = aiPlatformRepository.findAll();
+            
+            // 过滤符合条件的平台（系统平台或用户自己的平台）
+            Optional<AIPlatform> platformOpt = allPlatforms.stream()
+                .filter(p -> p.getType().equals(platform) && 
+                       (p.getUserId() == null || p.getUserId() == 0 || user.getId().equals(p.getUserId())))
+                .findFirst();
+                
+            if (!platformOpt.isPresent()) {
+                throw new RuntimeException("找不到可用的AI平台，或您没有权限使用该平台");
+            }
+            
             // 调用服务方法，注意参数顺序：conversationId, content, user
-            SseEmitter emitter = chatService.sendMessage(request.getConversationId(), request.getMessage(), user);
+            SseEmitter emitter = chatService.sendMessage(request.getConversationId(), request.getMessage(), user, platformType);
             log.info("消息发送成功，返回SSE emitter");
             return emitter;
         } catch (Exception e) {

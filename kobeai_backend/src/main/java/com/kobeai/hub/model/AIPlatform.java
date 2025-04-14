@@ -1,5 +1,6 @@
 package com.kobeai.hub.model;
 
+import io.swagger.annotations.ApiModelProperty;
 import lombok.Data;
 import javax.persistence.*;
 import java.time.LocalDateTime;
@@ -33,4 +34,10 @@ public class AIPlatform {
 
     @Column(nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
+
+    /**
+     * 0代表系统AI，其他数字代表用户添加的AI
+     */
+    @Column(name = "user_id")
+    private Long userId;
 }

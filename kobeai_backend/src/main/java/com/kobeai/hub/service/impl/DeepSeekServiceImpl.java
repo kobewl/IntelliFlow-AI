@@ -1,10 +1,14 @@
 package com.kobeai.hub.service.impl;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.kobeai.hub.model.AIPlatform;
 import com.kobeai.hub.model.Message;
+import com.kobeai.hub.model.Platform;
 import com.kobeai.hub.model.PromptTemplate;
+import com.kobeai.hub.model.User;
+import com.kobeai.hub.repository.AIPlatformRepository;
 import com.kobeai.hub.repository.MessageRepository;
-import com.kobeai.hub.service.DeepseekService;
+import com.kobeai.hub.service.AI.DeepSeekService;
 import com.kobeai.hub.service.PromptOptimizationService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -21,19 +25,21 @@ import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.Optional;
 
 @Slf4j
 @Service
-public class DeepseekServiceImpl implements DeepseekService {
+public class DeepSeekServiceImpl implements DeepSeekService {
 
-    @Value("${ai.deepseek.base-url}")
-    private String baseUrl;
+    // 保留默认值，当数据库中没有配置时使用
+    @Value("${ai.deepseek.base-url:https://api.deepseek.com/v1}")
+    private String defaultBaseUrl;
 
-    @Value("${ai.deepseek.api-key}")
-    private String apiKey;
+    @Value("${ai.deepseek.api-key:}")
+    private String defaultApiKey;
 
     @Value("${ai.deepseek.model:deepseek-chat}")
-    private String model;
+    private String defaultModel;
 
     @Value("${ai.deepseek.max-tokens:2000}")
     private int maxTokens;
@@ -44,26 +50,22 @@ public class DeepseekServiceImpl implements DeepseekService {
     private final ObjectMapper objectMapper;
     private final ExecutorService executorService;
     private final MessageRepository messageRepository;
+    private final AIPlatformRepository aiPlatformRepository;
 
     @Autowired
     private PromptOptimizationService promptOptimizationService;
 
-    public DeepseekServiceImpl(MessageRepository messageRepository) {
+    public DeepSeekServiceImpl(MessageRepository messageRepository, AIPlatformRepository aiPlatformRepository) {
         this.objectMapper = new ObjectMapper();
         this.executorService = Executors.newCachedThreadPool();
         this.messageRepository = messageRepository;
+        this.aiPlatformRepository = aiPlatformRepository;
     }
 
     @PostConstruct
     @Override
     public void initialize() {
-        if (apiKey == null || apiKey.trim().isEmpty()) {
-            throw new RuntimeException("Deepseek API key not configured");
-        }
-        if (baseUrl == null || baseUrl.trim().isEmpty()) {
-            throw new RuntimeException("Deepseek base URL not configured");
-        }
-        log.info("Deepseek service initialized with API key: {}", apiKey.substring(0, 8) + "...");
+        log.info("DeepSeek服务正在初始化...");
     }
 
     @PreDestroy
@@ -72,8 +74,44 @@ public class DeepseekServiceImpl implements DeepseekService {
         executorService.shutdown();
     }
 
+    /**
+     * 从数据库获取DeepSeek平台的配置信息
+     * 如果数据库中不存在配置，则使用默认值
+     * 
+     * @param user 当前用户，用于获取用户自定义配置
+     * @return 平台配置信息对象
+     */
+    private AIPlatform getDeepSeekConfig(User user) {
+        // 首先尝试查找用户自定义的DeepSeek平台配置
+        Optional<AIPlatform> userPlatform = Optional.empty();
+        if (user != null) {
+            userPlatform = aiPlatformRepository.findAll().stream()
+                    .filter(p -> p.getType() == Platform.DEEPSEEK && user.getId().equals(p.getUserId()))
+                    .findFirst();
+        }
+
+        // 如果用户没有自定义配置，则使用系统默认配置
+        if (!userPlatform.isPresent()) {
+            userPlatform = aiPlatformRepository.findByType(Platform.DEEPSEEK);
+        }
+
+        // 如果数据库中没有配置，则创建一个临时配置对象使用默认值
+        if (!userPlatform.isPresent()) {
+            AIPlatform defaultPlatform = new AIPlatform();
+            defaultPlatform.setBaseUrl(defaultBaseUrl);
+            defaultPlatform.setApiKey(defaultApiKey);
+            defaultPlatform.setType(Platform.DEEPSEEK);
+            defaultPlatform.setName("DeepSeek AI");
+
+            log.warn("未在数据库中找到DeepSeek平台配置，使用默认配置。请检查系统初始化是否正确。");
+            return defaultPlatform;
+        }
+        
+        return userPlatform.get();
+    }
+
     @Override
-    public SseEmitter sendMessage(String message, Message aiMessage) {
+    public SseEmitter sendMessage(String message, Message aiMessage, User user) {
         log.info("准备发送消息到 DeepSeek API");
         SseEmitter emitter = new SseEmitter(30 * 60 * 1000L);
 
@@ -84,6 +122,20 @@ public class DeepseekServiceImpl implements DeepseekService {
                         .name("init")
                         .data("连接已建立")
                         .build());
+
+                // 获取DeepSeek平台配置
+                AIPlatform platform = getDeepSeekConfig(user);
+                String apiKey = platform.getApiKey();
+                String baseUrl = platform.getBaseUrl();
+                String model = defaultModel; // 目前model仍然使用默认值，后续可以扩展到数据库中
+                
+                // 验证配置是否有效
+                if (apiKey == null || apiKey.trim().isEmpty()) {
+                    throw new RuntimeException("DeepSeek API密钥未配置");
+                }
+                if (baseUrl == null || baseUrl.trim().isEmpty()) {
+                    throw new RuntimeException("DeepSeek API基础URL未配置");
+                }
 
                 // 使用 Prompt 优化引擎优化消息
                 PromptTemplate template = promptOptimizationService.findBestTemplate("chat", message);
@@ -106,8 +158,6 @@ public class DeepseekServiceImpl implements DeepseekService {
 
                 List<Map<String, String>> messages = new ArrayList<>();
                 Map<String, String> systemMessage = new HashMap<>();
-                systemMessage.put("role", "system");
-                systemMessage.put("content", "You are a helpful assistant.");
                 messages.add(systemMessage);
 
                 Map<String, String> userMessage = new HashMap<>();

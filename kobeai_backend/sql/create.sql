@@ -1,4 +1,9 @@
--- auto-generated definition
+
+create database if not exists IntelliFlowAI;
+
+use IntelliFlowAI;
+
+-- 用户表
 create table users
 (
     id                    bigint auto_increment
@@ -23,7 +28,7 @@ create table users
 )
     charset = utf8mb4;
 
--- auto-generated definition
+-- 系统通知表
 create table system_notifications
 (
     id         bigint auto_increment
@@ -38,7 +43,7 @@ create table system_notifications
 )
     charset = utf8mb4;
 
--- auto-generated definition
+-- 提示模板表
 create table prompt_templates
 (
     id                   bigint auto_increment
@@ -57,7 +62,7 @@ create table prompt_templates
 )
     charset = utf8mb4;
 
--- auto-generated definition
+-- 通知表
 create table notifications
 (
     id         bigint auto_increment
@@ -71,7 +76,7 @@ create table notifications
 )
     charset = utf8mb4;
 
--- auto-generated definition
+-- 消息表
 create table messages
 (
     id              bigint auto_increment
@@ -88,7 +93,7 @@ create table messages
 )
     charset = utf8mb4;
 
--- auto-generated definition
+-- 会话表
 create table conversations
 (
     id          bigint auto_increment
@@ -99,26 +104,31 @@ create table conversations
     user_id     bigint       not null,
     constraint FK8uurqd0mfocwdvi6t3wkclmdt
         foreign key (platform_id) references ai_platforms (id),
-    constraint FKmdgb887l94405ux1fb0gubj9n
-        foreign key (platform_id) references ai_platform (id),
     constraint FKpltqvfcbkql9svdqwh0hw4g1d
         foreign key (user_id) references users (id)
 )
     charset = utf8mb4;
 
--- auto-generated definition
+
+-- AI平台表
 create table ai_platforms
 (
     id          bigint auto_increment
         primary key,
-    api_key     varchar(255) null,
-    base_url    varchar(255) null,
-    created_at  datetime(6)  null,
-    enabled     bit          not null,
-    name        varchar(255) not null,
-    type        varchar(255) not null,
-    description varchar(255) not null
+    api_key     varchar(255)               null,
+    base_url    varchar(255)               null,
+    created_at  datetime(6)                null,
+    enabled     bit                        not null,
+    name        varchar(255)               not null,
+    type        varchar(255)               not null,
+    description varchar(255)               not null,
+    user_id     bigint                     null comment '0代表系统AI，其他数字代表用户添加的AI',
+    model       varchar(255)               null,
+    max_tokens  int           default 2000 null,
+    temperature decimal(3, 2) default 0.70 null
 )
     charset = utf8mb4;
 
+create index fk_user_id
+    on ai_platforms (user_id);
 

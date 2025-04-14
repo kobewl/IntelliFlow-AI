@@ -22,36 +22,6 @@ public class PlatformServiceImpl implements PlatformService {
 
     private final AIPlatformRepository platformRepository;
 
-    @PostConstruct
-    @Transactional
-    public void init() {
-        try {
-            // 检查是否已存在DeepSeek平台配置
-            Optional<AIPlatform> existingPlatform = platformRepository.findByType(Platform.DEEPSEEK);
-            if (!existingPlatform.isPresent()) {
-                // 创建默认的DeepSeek平台配置
-                AIPlatform platform = new AIPlatform();
-                platform.setType(Platform.DEEPSEEK);
-                platform.setName("DeepSeek AI");
-                platform.setDescription("DeepSeek AI");
-                platform.setApiKey("sk-ae9973eaca5748ed90a87a4e4e4784e6");
-                platform.setBaseUrl("https://api.deepseek.com/v1");
-                platform.setEnabled(true);
-                platform.setCreatedAt(LocalDateTime.now());
-                
-                // 保存并获取保存后的实体
-                AIPlatform savedPlatform = platformRepository.saveAndFlush(platform);
-                log.info("DeepSeek平台配置已初始化, ID: {}, Type: {}", savedPlatform.getId(), savedPlatform.getType());
-            } else {
-                log.info("DeepSeek平台配置已存在, ID: {}, Type: {}", existingPlatform.get().getId(), existingPlatform.get().getType());
-            }
-        } catch (Exception e) {
-            log.error("初始化平台配置失败: {}", e.getMessage(), e);
-            // 重新抛出异常以确保Spring容器知道初始化失败
-            throw new RuntimeException("初始化平台配置失败: " + e.getMessage(), e);
-        }
-    }
-
     @Override
     @Transactional
     public ApiResponse<?> addPlatform(String description, String apiKey, String baseUrl) {
