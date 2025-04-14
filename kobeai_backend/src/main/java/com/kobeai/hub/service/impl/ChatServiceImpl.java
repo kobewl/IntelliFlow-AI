@@ -5,8 +5,9 @@ import com.kobeai.hub.model.*;
 import com.kobeai.hub.repository.AIPlatformRepository;
 import com.kobeai.hub.repository.ConversationRepository;
 import com.kobeai.hub.repository.MessageRepository;
+import com.kobeai.hub.service.AI.DouBaoService;
 import com.kobeai.hub.service.ChatService;
-import com.kobeai.hub.service.DeepseekService;
+import com.kobeai.hub.service.AI.DeepSeekService;
 import com.kobeai.hub.service.UserService;
 import com.kobeai.hub.util.JwtUtil;
 import lombok.RequiredArgsConstructor;
@@ -17,9 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
-import java.io.IOException;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -33,7 +32,8 @@ public class ChatServiceImpl implements ChatService {
     private final MessageRepository messageRepository;
     private final AIPlatformRepository platformRepository;
     private final UserService userService;
-    private final DeepseekService deepseekService;
+    private final DeepSeekService deepseekService;
+    private final DouBaoService doubaoService;
     private final JwtUtil jwtUtil;
 
     private String extractToken(String authHeader) {
@@ -91,7 +91,7 @@ public class ChatServiceImpl implements ChatService {
 
     @Override
     @Transactional
-    public SseEmitter sendMessage(Long conversationId, String content, User user) {
+    public SseEmitter sendMessage(Long conversationId, String content, User user, String platformType) {
         // 获取或创建会话
         Conversation conversation = conversationRepository.findById(conversationId)
                 .orElseGet(() -> {
@@ -130,8 +130,37 @@ public class ChatServiceImpl implements ChatService {
         // 获取历史消息用于上下文
         List<Message> historyMessages = messageRepository.findRecentMessages(conversation.getId(), 10);
 
-        // 调用AI服务生成回复
-        return deepseekService.sendMessage(content, aiMessage);
+        // 根据platformType调用对应的AI服务生成回复
+        Platform platform;
+        try {
+            platform = Platform.valueOf(platformType.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            log.error("无效的平台类型: {}", platformType);
+            throw new RuntimeException("无效的平台类型: " + platformType);
+        }
+        
+        // 根据不同的平台类型调用不同的服务实现
+        switch (platform) {
+            case DEEPSEEK:
+                return deepseekService.sendMessage(content, aiMessage, user);
+            case CHATGPT:
+                // todo:如果后续实现了ChatGPT服务，可以在这里调用
+                // return chatgptService.sendMessage(content, aiMessage);
+                throw new RuntimeException("ChatGPT服务尚未实现");
+            case CLAUDE:
+                // todo:如果后续实现了Claude服务，可以在这里调用
+                // return claudeService.sendMessage(content, aiMessage);
+                throw new RuntimeException("Claude服务尚未实现");
+            case BAIDU_WENXIN:
+                // todo:如果后续实现了百度文心一言服务，可以在这里调用
+                // return baiduWenxinService.sendMessage(content, aiMessage);
+                throw new RuntimeException("百度文心一言服务尚未实现");
+            case DOUBAO:
+                 return doubaoService.sendMessage(content, aiMessage);
+            default:
+                log.error("不支持的AI平台类型: {}", platform);
+                throw new RuntimeException("不支持的AI平台类型: " + platform);
+        }
     }
 
     // 根据消息内容生成标题

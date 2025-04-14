@@ -30,7 +30,7 @@ public interface ChatService {
      * @param user           发送消息的用户
      * @return SSE发射器，用于流式返回AI回复
      */
-    SseEmitter sendMessage(Long conversationId, String content, User user);
+    SseEmitter sendMessage(Long conversationId, String content, User user, String platformType);
 
     /**
      * 获取指定会话的最近消息

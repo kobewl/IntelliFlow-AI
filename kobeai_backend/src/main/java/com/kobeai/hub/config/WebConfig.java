@@ -1,5 +1,6 @@
 package com.kobeai.hub.config;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -25,6 +26,7 @@ public class WebConfig implements WebMvcConfigurer {
 
     @Value("${app.upload.dir:uploads}")
     private String uploadDir;
+
 
     @Bean
     public CorsFilter corsFilter() {

@@ -17,5 +17,15 @@ public enum Platform {
     /**
      * Claude平台
      */
-    CLAUDE
+    CLAUDE,
+
+    /**
+     * 百度文心一言平台
+     */
+    BAIDU_WENXIN,
+
+    /**
+     * 豆包平台
+     */
+    DOUBAO
 } 
