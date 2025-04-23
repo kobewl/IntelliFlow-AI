@@ -39,14 +39,45 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
     'Helvetica Neue', Arial, 'Noto Sans', sans-serif, 'Apple Color Emoji',
     'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+  overflow: hidden; /* 防止页面出现滚动条 */
 }
 
 #app {
   height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+}
+
+.el-container {
+  height: 100%;
+  width: 100%;
+}
+
+.el-main {
+  height: calc(100vh - 64px); /* 减去header高度 */
+  overflow-y: auto;
+  padding: 20px;
 }
 
 * {
   box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* 滚动条样式优化 */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #ddd;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f5f5f5;
 }
 
 /* 全局过渡效果 */

@@ -46,7 +46,6 @@ public class UserServiceImpl implements UserService {
     private final JwtUtil jwtUtil;
     private final RabbitTemplate rabbitTemplate;
     private final RedisTemplate<String, Object> redisTemplate;
-    private final StringRedisTemplate stringRedisTemplate;
 
     @Override
     public ApiResponse<?> login(String username, String password) {

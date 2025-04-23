@@ -3,6 +3,7 @@ import { createPinia } from 'pinia'
 import ElementPlus from 'element-plus'
 import * as ElementPlusIconsVue from '@element-plus/icons-vue'
 import 'element-plus/dist/index.css'
+import './styles/theme.scss'
 import './styles/main.scss'
 
 import App from './App.vue'
@@ -49,7 +50,9 @@ const pinia = createPinia()
 // 使用插件
 app.use(pinia)
 app.use(router)
-app.use(ElementPlus)
+app.use(ElementPlus, {
+  size: 'default'
+})
 
 // 注册所有图标
 for (const [key, component] of Object.entries(ElementPlusIconsVue)) {

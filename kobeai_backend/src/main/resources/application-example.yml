@@ -5,14 +5,21 @@ server:
 
 spring:
   application:
-    name: kobeai-backend
+    name: kobeai-hub
 
   # 数据库配置
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://localhost:3306/kobeai?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai
+    url: jdbc:mysql://localhost:3306/IntelliFlowAI?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai
     username: your-username
     password: your-password
+    hikari:
+      minimum-idle: 5
+      maximum-pool-size: 15
+      idle-timeout: 30000
+      pool-name: KobeAIHikariCP
+      max-lifetime: 2000000
+      connection-timeout: 30000
 
   # JPA配置
   jpa:
@@ -23,24 +30,37 @@ spring:
     properties:
       hibernate:
         format_sql: true
+    defer-datasource-initialization: true
 
   # Redis配置
   redis:
     host: localhost
     port: 6379
-    password: your-redis-password
     database: 0
+    timeout: 5000
+    lettuce:
+      pool:
+        max-active: 8
+        max-wait: -1
+        max-idle: 8
+        min-idle: 0
 
   # 文件上传配置
   servlet:
     multipart:
+      enabled: true
       max-file-size: 10MB
       max-request-size: 100MB
 
+  sql:
+    init:
+      mode: never
+
 # JWT配置
 jwt:
-  secret: your-jwt-secret-key
-  expiration: 604800 # 7天，单位：秒
+  secret: your-jwt-secret-key-must-be-at-least-256-bits-long-for-security
+  expiration: 86400000
+  refresh-expiration: 604800000
 
 # OpenAI配置
 openai:
@@ -64,27 +84,29 @@ storage:
 
 # 邮件配置
 mail:
-  host: smtp.example.com
+  host: smtp.qq.com
   port: 587
-  username: your-email@example.com
+  username: your-email@qq.com
   password: your-email-password
   properties:
-    mail.smtp.auth: true
-    mail.smtp.starttls.enable: true
+    mail:
+      smtp:
+        auth: true
+        starttls:
+          enable: true
+          required: true
 
 # 日志配置
 logging:
   level:
     root: INFO
-    com.kobeai: DEBUG
+    com.kobeai.hub: DEBUG
   file:
-    name: logs/kobeai.log
-    max-size: 10MB
-    max-history: 30
+    name: logs/kobeai-hub.log
 
 # 跨域配置
 cors:
-  allowed-origins: http://localhost:3000
+  allowed-origins: http://localhost:5173
   allowed-methods: GET,POST,PUT,DELETE,OPTIONS
   allowed-headers: "*"
   allow-credentials: true
@@ -119,3 +141,57 @@ services:
     access-key-secret: your-access-key-secret
     sign-name: your-sign-name
     template-code: your-template-code
+
+# RabbitMQ配置
+rabbitmq:
+  host: localhost
+  username: your-username
+  password: your-password
+  port: 5672
+
+# 热部署配置
+devtools:
+  restart:
+    enabled: true # 开启热部署
+    additional-paths: src/main/java # 重启目录
+    exclude: WEB-INF/** # 排除WEB-INF目录
+  livereload:
+    enabled: true # 开启livereload
+    port: 35729 # livereload端口
+
+websocket:
+  enabled: true
+
+mvc:
+  pathmatch:
+    matching-strategy: ant_path_matcher
+
+main:
+  allow-circular-references: true
+
+# MinIO Configuration
+minio:
+  endpoint: http://localhost:9000
+  accessKey: your-minio-access-key
+  secretKey: your-minio-secret-key
+  bucketName: your-bucket-name
+
+knife4j:
+  enable: true
+  setting:
+    language: zh-CN
+    swagger-model-name: 实体类列表
+    enable-footer: false
+    enable-footer-custom: false
+  basic:
+    enable: false
+  production: false
+
+springfox:
+  documentation:
+    swagger-ui:
+      enabled: true
+
+app:
+  upload:
+    dir: uploads

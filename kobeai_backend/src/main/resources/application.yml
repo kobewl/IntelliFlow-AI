@@ -1,12 +1,23 @@
 spring:
+  application:
+    name: kobeai-hub
+  
   datasource:
     url: jdbc:mysql://39.98.107.158:3306/IntelliFlowAI?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai
     username: root
     password: kobe200800
     driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      minimum-idle: 5
+      maximum-pool-size: 15
+      idle-timeout: 30000
+      pool-name: KobeAIHikariCP
+      max-lifetime: 2000000
+      connection-timeout: 30000
 
   servlet:
     multipart:
+      enabled: true
       max-file-size: 10MB
       max-request-size: 100MB
 
@@ -18,6 +29,11 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.MySQL8Dialect
         format_sql: true
+    defer-datasource-initialization: true
+
+  sql:
+    init:
+      mode: never
 
   redis:
     host: 39.98.107.158
@@ -62,6 +78,16 @@ spring:
       enabled: true # 开启livereload
       port: 35729 # livereload端口
 
+  websocket:
+    enabled: true
+
+  mvc:
+    pathmatch:
+      matching-strategy: ant_path_matcher
+
+  main:
+    allow-circular-references: true
+
 server:
   port: 8080
   servlet:
@@ -70,19 +96,41 @@ server:
 jwt:
   secret: kobeai-jwt-secret-key-must-be-at-least-256-bits-long-for-security
   expiration: 86400000
+  refresh-expiration: 604800000
 
-deepseek:
-  api:
-    key: sk-ae9973eaca5748ed90a87a4e4e4784e6
-    base-url: https://api.deepseek.com/v1
+logging:
+  level:
+    root: INFO
+    com.kobeai.hub: DEBUG
+  file:
+    name: logs/kobeai-hub.log
 
-ai:
-  deepseek:
-    base-url: https://api.deepseek.com/v1
-    api-key: ${DEEPSEEK_API_KEY:sk-ae9973eaca5748ed90a87a4e4e4784e6}
-    model: deepseek-chat
-    max-tokens: 2000
-    temperature: 0.7
+knife4j:
+  enable: true
+  setting:
+    language: zh-CN
+    swagger-model-name: 实体类列表
+    enable-footer: false
+    enable-footer-custom: false
+  basic:
+    enable: false
+  production: false
+
+springfox:
+  documentation:
+    swagger-ui:
+      enabled: true
+
+cors:
+  allowed-origins: http://localhost:5173
+  allowed-methods: GET,POST,PUT,DELETE,OPTIONS
+  allowed-headers: "*"
+  allow-credentials: true
+  max-age: 3600
+
+app:
+  upload:
+    dir: uploads
 
 # MinIO Configuration
 minio:
