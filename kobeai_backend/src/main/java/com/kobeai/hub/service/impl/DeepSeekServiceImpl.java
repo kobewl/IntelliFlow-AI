@@ -157,7 +157,11 @@ public class DeepSeekServiceImpl implements DeepSeekService {
                 requestBody.put("model", model);
 
                 List<Map<String, String>> messages = new ArrayList<>();
+                
+                // 添加系统消息
                 Map<String, String> systemMessage = new HashMap<>();
+                systemMessage.put("role", "system");
+                systemMessage.put("content", "你是一个专业、友好的AI助手，请用简洁专业的方式回答用户的问题。");
                 messages.add(systemMessage);
 
                 Map<String, String> userMessage = new HashMap<>();

@@ -101,7 +101,8 @@ public class ChatController {
     @PostMapping("/completions")
     @ApiOperation(value = "发送消息", notes = "发送消息到AI助手并获取回复")
     public SseEmitter sendMessage(@RequestBody ChatRequest request,
-            @RequestHeader("Authorization") String authHeader, @RequestParam(required = true) String platformType) {
+            @RequestHeader("Authorization") String authHeader, 
+            @RequestParam(required = false, defaultValue = "DEEPSEEK") String platformType) {
         log.info("收到发送消息请求 - message: {}, conversationId: {}, authHeader: {}",
                 request.getMessage(),
                 request.getConversationId());
