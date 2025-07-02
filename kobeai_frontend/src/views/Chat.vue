@@ -24,13 +24,33 @@
     <!-- 主聊天区域 -->
     <div class="chat-main">
       <div class="chat-header">
-        <div class="chat-title">
-          <el-icon><ChatRound /></el-icon>
-          <span>{{ currentConversation?.title || '新对话' }}</span>
+        <div class="chat-title-row" style="display: flex; align-items: center; justify-content: space-between;">
+          <div class="chat-title">
+            <el-icon><ChatRound /></el-icon>
+            <span>{{ currentConversation?.title || '新对话' }}</span>
+          </div>
+          <div class="header-actions">
+            <UserProfile />
+          </div>
         </div>
-        
-        <div class="header-actions">
-          <UserProfile />
+        <!-- 模型选择下拉框放在标题下方，增加间距 -->
+        <div style="margin: 12px 0 0 0; display: flex; align-items: center; flex-direction: column; align-items: flex-start;">
+          <el-select
+            v-model="selectedModel"
+            placeholder="选择模型"
+            size="small"
+            style="min-width: 160px;"
+            :disabled="modelList.length === 0"
+            :loading="modelList.length === 0"
+            @change="handleModelChange"
+          >
+            <el-option
+              v-for="model in modelList"
+              :key="model.name"
+              :label="model.name"
+              :value="model.name"
+            />
+          </el-select>
         </div>
       </div>
 
@@ -114,6 +134,7 @@ import { chatApi } from '../api/chat'
 import { marked } from 'marked'
 import hljs from 'highlight.js'
 import 'highlight.js/styles/github.css'
+import request from '../utils/request'
 
 // Store 实例
 const authStore = useAuthStore()
@@ -145,10 +166,44 @@ const currentTitle = computed(() => {
   return currentConversation.value.title || `新会话 ${currentConversation.value.id}`
 })
 
+// 模型切换相关状态
+const modelList = ref<{ name: string; description: string; type: string }[]>([])
+const selectedModel = ref('')
+
+// 获取模型列表
+async function fetchModelList() {
+  try {
+    const res = await request.get('/platform/api/ai-platforms')
+    console.log('模型接口原始返回：', res)
+    // 兼容不同返回结构
+    let models = []
+    if (res && Array.isArray(res.data)) {
+      models = res.data
+    } else if (res.data && Array.isArray(res.data.data)) {
+      models = res.data.data
+    }
+    modelList.value = models
+    console.log('赋值后 modelList:', modelList.value)
+    // 默认选中第一个模型
+    if (modelList.value.length > 0) {
+      selectedModel.value = modelList.value[0].name
+    }
+  } catch (e) {
+    ElMessage.error('获取模型列表失败')
+  }
+}
+
+// 切换模型时的处理
+function handleModelChange(val: string) {
+  // 这里可以做一些切换模型后的逻辑，比如提示、保存到本地等
+  ElMessage.success(`已切换到模型：${val}`)
+}
+
 // 加载会话列表
 onMounted(async () => {
   try {
     await chatStore.loadConversations()
+    fetchModelList()
   } catch (error) {
     ElMessage.error('加载会话列表失败')
   }
@@ -508,6 +563,12 @@ async function handleUserAction(command: string) {
   position: sticky;
   top: 0;
   z-index: 10;
+}
+
+.chat-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .chat-title {
