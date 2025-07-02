@@ -6,7 +6,11 @@ import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import io.swagger.annotations.ApiParam;
 import lombok.RequiredArgsConstructor;
+import lombok.var;
 import org.springframework.web.bind.annotation.*;
+import com.kobeai.hub.model.AIPlatform;
+import java.util.List;
+import java.util.Map;
 
 @Api(tags = "AI平台管理")
 @RestController
@@ -36,5 +40,13 @@ public class PlatformController {
     public ApiResponse<?> deletePlatform(
             @ApiParam("平台ID") @PathVariable Long id) {
         return platformService.deletePlatform(id);
+    }
+
+    @ApiOperation("获取可用AI模型列表")
+    @GetMapping("/api/ai-platforms")
+    public ApiResponse<?> getAvailableAIPlatforms() {
+        // 只返回 enabled=true 的 name、type、description 字段
+        var platforms = platformService.listEnabledPlatformsSimple();
+        return ApiResponse.success("获取成功", platforms);
     }
 }

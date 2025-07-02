@@ -12,7 +12,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import javax.annotation.PostConstruct;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @Slf4j
@@ -63,5 +66,19 @@ public class PlatformServiceImpl implements PlatformService {
             log.error("删除平台失败: {}", e.getMessage(), e);
             return ApiResponse.error(e.getMessage());
         }
+    }
+
+    @Override
+    public List<Map<String, Object>> listEnabledPlatformsSimple() {
+        List<AIPlatform> platforms = platformRepository.findByEnabledTrue();
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (AIPlatform p : platforms) {
+            Map<String, Object> map = new HashMap<>();
+            map.put("name", p.getName());
+            map.put("type", p.getType());
+            map.put("description", p.getDescription());
+            result.add(map);
+        }
+        return result;
     }
 }

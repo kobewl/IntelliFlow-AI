@@ -111,7 +111,8 @@ export const chatApi = {
   async sendMessage(
     conversationId: number, 
     message: string,
-    onUpdate?: (content: string) => void
+    onUpdate?: (content: string) => void,
+    model?: string
   ): Promise<ApiResponse<ChatMessage>> {
     let { token } = getAuthToken()
     if (!token || typeof token !== 'string') {
@@ -175,7 +176,8 @@ export const chatApi = {
             },
             body: JSON.stringify({
               message,
-              conversationId
+              conversationId,
+              model
             }),
             signal: controller.signal
           })
