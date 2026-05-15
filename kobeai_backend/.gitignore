@@ -40,6 +40,7 @@ logs/
 .env.*
 !.env.example
 application.yml
+docker-compose.yml
 application-*.yml
 !application-example.yml
 *.properties
