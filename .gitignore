@@ -6,4 +6,34 @@ resume.md
 .vscode/
 
 # 项目亮点文档
-project_highlights.md .DS_Store
+project_highlights.md
+
+# macOS 系统文件
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+
+# macOS 备份文件
+.DS_Store_bak
+**/.DS_Store_bak
+
+# IntelliJ IDEA
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# 敏感配置文件（不应提交真实密码）
+application.yml
+docker-compose.yml
+.env
+.env.*
+
+# 日志和临时文件
+*.log
+logs/
+tmp/
+temp/
+*.tmp
