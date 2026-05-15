@@ -3,8 +3,8 @@
 <div align="center">
 
   <img src="https://img.shields.io/badge/Vue-3.4-42b883?logo=vuedotjs" alt="Vue 3.4"/>
-  <img src="https://img.shields.io/badge/Spring%20Boot-2.7-6db33f?logo=springboot" alt="Spring Boot 2.7"/>
-  <img src="https://img.shields.io/badge/Java-8-orange?logo=openjdk" alt="Java 8"/>
+  <img src="https://img.shields.io/badge/Spring%20Boot-3.5-6db33f?logo=springboot" alt="Spring Boot 3.5"/>
+  <img src="https://img.shields.io/badge/Java-17-orange?logo=openjdk" alt="Java 17"/>
   <img src="https://img.shields.io/badge/DeepSeek-API-0078d4?logo=openai" alt="DeepSeek"/>
   <img src="https://img.shields.io/badge/License-MIT-yellow" alt="License"/>
   <img src="https://img.shields.io/github/stars/kobewl/IntelliFlow-AI?style=social" alt="Stars"/>
@@ -36,7 +36,7 @@
 └────────────────────────────┬────────────────────────────────┘
                              │ SSE / REST
 ┌────────────────────────────▼────────────────────────────────┐
-│                  接入层 (Spring Boot 2.7)                     │
+│                  接入层 (Spring Boot 3.5)                     │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐       │
 │  │ Spring       │  │ JWT 鉴权      │  │ 全局异常处理   │       │
 │  │ Security     │  │              │  │              │       │
@@ -109,7 +109,7 @@ npm run dev
 
 ```
 IntelliFlow-AI/
-├── kobeai_backend/           # Spring Boot 2.7 后端
+├── kobeai_backend/           # Spring Boot 3.5 后端
 │   ├── src/main/java/
 │   │   └── com/kobeai/hub/
 │   │       ├── controller/   # REST API 接口
@@ -155,7 +155,7 @@ public interface AIPlatformService {
 ## 技术栈
 
 **后端**
-- Spring Boot **2.7.5** · Spring Security · Spring Data JPA
+- Spring Boot **3.5.11** · Spring Security · Spring Data JPA
 - LangChain4j **1.0.0-beta3** (大模型集成)
 - DeepSeek API · 豆包 API
 - MySQL **8.0** · Redis · RabbitMQ · MinIO
@@ -173,7 +173,8 @@ public interface AIPlatformService {
 - [x] 对话历史持久化
 - [ ] 知识库 RAG (基于 LangChain4j + 向量库)
 - [ ] 多模型智能路由(按任务类型选择最优模型)
-- [ ] 集成 [AgentScope](https://github.com/agentscope-ai/agentscope-java) 实现智能体编排(*需先将 backend 升级至 JDK 17 + Spring Boot 3.x*)
+- [x] backend 升级至 JDK 17 + Spring Boot 3.x
+- [ ] 集成 [AgentScope](https://github.com/agentscope-ai/agentscope-java) 实现智能体编排
 - [ ] 插件系统 / MCP 协议支持
 - [ ] 多租户能力
 
