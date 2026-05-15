@@ -21,9 +21,9 @@
 - **流式对话** — SSE 流式输出,Markdown / 代码高亮渲染,体验接近 ChatGPT
 - **全栈开箱即用** — 前后端分离架构,自带用户体系、JWT 鉴权、对话历史、文件上传(MinIO)
 - **现代前端** — Vue 3 Composition API + TypeScript + Vite,组件化清晰
-- **可扩展架构** — Service 层抽象 + Repository 模式,易于二次开发
+- **可扩展架构** — 多模块 Maven 项目,AgentScope Agent 框架集成,易于二次开发
 
-> 💡 部分高级特性(多模型智能路由、知识库 RAG、向量检索)处于**规划/试验阶段**,详见下方[路线图](#路线图)。
+> 💡 部分高级特性(知识库 RAG、多模型智能路由、Agent 编排)处于**规划/开发阶段**,基于 [AgentScope Java](https://java.agentscope.io) 框架实现,详见下方[路线图](#路线图)。
 
 ## 技术架构
 
@@ -71,8 +71,8 @@
 | **用户体系** | ✅ | 注册/登录、JWT、邮件验证 |
 | **对话历史** | ✅ | 会话保存、历史检索 |
 | **文件上传** | ✅ | MinIO 对象存储 |
-| **知识库 RAG** | 🚧 规划 | 计划基于 LangChain4j + 向量库实现 |
-| **多模型智能路由** | 🚧 规划 | 按任务类型自动调度模型 |
+| **知识库 RAG** | 🚧 规划 | 基于 AgentScope 框架 + 向量库实现 |
+| **多模型智能路由** | 🚧 规划 | 基于 AgentScope Agent 编排,按任务类型自动调度模型 |
 
 ## 快速开始
 
@@ -157,6 +157,7 @@ public interface AIPlatformService {
 
 **后端**
 - Spring Boot **3.5.11** · Spring Security · Spring Data JPA
+- [AgentScope Java](https://java.agentscope.io) **1.0.12** (Agent 框架)
 - LangChain4j **1.0.0-beta3** (大模型集成)
 - DeepSeek API · 豆包 API
 - MySQL **8.0** · Redis · RabbitMQ · MinIO
@@ -172,10 +173,10 @@ public interface AIPlatformService {
 - [x] 多模型 Provider 抽象(DeepSeek、豆包)
 - [x] 用户体系与 JWT 鉴权
 - [x] 对话历史持久化
-- [ ] 知识库 RAG (基于 LangChain4j + 向量库)
-- [ ] 多模型智能路由(按任务类型选择最优模型)
+- [ ] 知识库 RAG (基于 [AgentScope](https://java.agentscope.io) + 向量库)
+- [ ] 多模型智能路由 (基于 AgentScope Agent 编排,按任务类型自动调度模型)
 - [x] backend 升级至 JDK 17 + Spring Boot 3.x
-- [ ] 集成 [AgentScope](https://github.com/agentscope-ai/agentscope-java) 实现智能体编排
+- [ ] 集成 [AgentScope](https://java.agentscope.io) 实现智能体编排 🚧 进行中
 - [ ] 插件系统 / MCP 协议支持
 - [ ] 多租户能力
 
