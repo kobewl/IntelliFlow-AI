@@ -30,7 +30,7 @@
         <mapstruct.version>1.6.3</mapstruct.version>
         <jjwt.version>0.12.6</jjwt.version>
         <knife4j.version>4.5.0</knife4j.version>
-        <langchain4j.version>1.0.0-beta3</langchain4j.version>
+
         <minio.version>8.5.7</minio.version>
         <agentscope.version>1.0.12</agentscope.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -53,6 +53,11 @@
             <dependency>
                 <groupId>com.kobeai</groupId>
                 <artifactId>kobeai-service</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.kobeai</groupId>
+                <artifactId>kobeai-agent</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
@@ -80,18 +85,6 @@
                 <version>${knife4j.version}</version>
             </dependency>
 
-            <!-- LangChain4j -->
-            <dependency>
-                <groupId>dev.langchain4j</groupId>
-                <artifactId>langchain4j</artifactId>
-                <version>${langchain4j.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>dev.langchain4j</groupId>
-                <artifactId>langchain4j-open-ai</artifactId>
-                <version>${langchain4j.version}</version>
-            </dependency>
-
             <!-- MinIO -->
             <dependency>
                 <groupId>io.minio</groupId>
@@ -114,6 +107,11 @@
             </dependency>
 
             <!-- AgentScope -->
+            <dependency>
+                <groupId>io.agentscope</groupId>
+                <artifactId>agentscope</artifactId>
+                <version>${agentscope.version}</version>
+            </dependency>
             <dependency>
                 <groupId>io.agentscope</groupId>
                 <artifactId>agentscope-spring-boot-starter</artifactId>

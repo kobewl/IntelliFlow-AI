@@ -26,7 +26,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import MarkdownRenderer from '../components/MarkdownRenderer.vue'
+import MarkdownRenderer from '../../components/MarkdownRenderer.vue'
 
 const isDarkMode = ref(false)
 const markdownContent = ref(`# Markdown 渲染示例

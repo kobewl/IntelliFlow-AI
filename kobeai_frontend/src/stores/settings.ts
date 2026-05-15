@@ -8,7 +8,7 @@ export const useSettingsStore = defineStore('settings', () => {
       return JSON.parse(saved)
     }
     return {
-      theme: 'system',
+      theme: 'light',
       primaryColor: '#409EFF',
       sidebarCollapsible: true,
       messageStyle: 'rounded',
@@ -68,7 +68,7 @@ export const useSettingsStore = defineStore('settings', () => {
 
   const resetSettings = () => {
     settings.value = {
-      theme: 'system',
+      theme: 'light',
       primaryColor: '#409EFF',
       sidebarCollapsible: true,
       messageStyle: 'rounded',

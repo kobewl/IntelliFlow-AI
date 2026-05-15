@@ -14,9 +14,9 @@ public class RegisterRequest {
     @Schema(description = "密码", required = true, example = "123456")
     private String password;
 
-    @Schema(description = "邮箱", required = true, example = "zhangsan@example.com")
+    @Schema(description = "邮箱（可选）", required = false, example = "zhangsan@example.com")
     private String email;
 
-    @Schema(description = "手机号", required = true, example = "13800138000")
+    @Schema(description = "手机号（可选）", required = false, example = "13800138000")
     private String phone;
 }

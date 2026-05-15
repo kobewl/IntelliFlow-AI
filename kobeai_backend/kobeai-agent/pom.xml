@@ -12,9 +12,10 @@
 
     <artifactId>kobeai-agent</artifactId>
     <packaging>jar</packaging>
-    <description>Agent 模块: 基于 AgentScope 的智能体系统</description>
+    <description>Agent 模块: 基于 AgentScope Java 的智能体系统 (ReActAgent, RAG, 多模型路由)</description>
 
     <dependencies>
+        <!-- 内部模块 -->
         <dependency>
             <groupId>com.kobeai</groupId>
             <artifactId>kobeai-service</artifactId>
@@ -24,10 +25,22 @@
             <artifactId>kobeai-common</artifactId>
         </dependency>
 
-        <!-- AgentScope -->
+        <!-- AgentScope 核心 (ReActAgent, Model, Toolkit, Memory, RAG) -->
+        <dependency>
+            <groupId>io.agentscope</groupId>
+            <artifactId>agentscope</artifactId>
+        </dependency>
+
+        <!-- AgentScope Spring Boot 集成 (自动装配, 配置提示) -->
         <dependency>
             <groupId>io.agentscope</groupId>
             <artifactId>agentscope-spring-boot-starter</artifactId>
+        </dependency>
+
+        <!-- Web 支持 (Flux SSE 需要的 spring-boot-starter-webflux) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-webflux</artifactId>
         </dependency>
 
         <dependency>

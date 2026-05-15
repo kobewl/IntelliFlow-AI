@@ -153,8 +153,8 @@
 import { ref } from 'vue'
 import { Check, InfoFilled } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
-import { useAuthStore } from '../stores/auth'
-import { UserRole } from '../types/user'
+import { useAuthStore } from '../../stores/auth'
+import { UserRole } from '../../types/user'
 
 const authStore = useAuthStore()
 const userType = ref('personal')

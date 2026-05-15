@@ -21,6 +21,10 @@
         </dependency>
         <dependency>
             <groupId>com.kobeai</groupId>
+            <artifactId>kobeai-agent</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.kobeai</groupId>
             <artifactId>kobeai-domain</artifactId>
         </dependency>
         <dependency>
