@@ -1,18 +1,13 @@
 <template>
   <div class="auth-layout">
-    <div class="auth-container">
-      <div class="auth-header">
-        <h1>KobeAI</h1>
+    <div class="auth-card">
+      <div class="auth-logo">
+        <span>KobeAI</span>
       </div>
-      <div class="auth-content">
-        <router-view></router-view>
-      </div>
+      <slot />
     </div>
   </div>
 </template>
-
-<script setup lang="ts">
-</script>
 
 <style scoped>
 .auth-layout {
@@ -20,48 +15,36 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: var(--el-bg-color-page);
+  background: linear-gradient(135deg, #f0f4ff 0%, #f5f0ff 50%, #f0f4ff 100%);
+  padding: 20px;
 }
 
-.auth-container {
+.auth-card {
   width: 100%;
-  max-width: 400px;
-  padding: 40px 20px;
+  max-width: 420px;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 4px 32px rgba(0, 0, 0, 0.06);
+  padding: 40px 36px;
 }
 
-.auth-header {
+.auth-logo {
   text-align: center;
-  margin-bottom: 40px;
+  margin-bottom: 32px;
 }
 
-.auth-header h1 {
-  margin: 0;
-  font-size: 32px;
-  color: var(--el-color-primary);
+.auth-logo span {
+  font-size: 28px;
+  font-weight: 700;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
-.auth-content {
-  background-color: var(--el-bg-color);
-  border-radius: 8px;
-  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
-  padding: 30px;
-}
-
-@media (max-width: 768px) {
-  .auth-container {
-    padding: 20px;
-  }
-  
-  .auth-header {
-    margin-bottom: 30px;
-  }
-  
-  .auth-header h1 {
-    font-size: 28px;
-  }
-  
-  .auth-content {
-    padding: 20px;
+@media (max-width: 480px) {
+  .auth-card {
+    padding: 28px 20px;
+    border-radius: 12px;
   }
 }
-</style> 
+</style>

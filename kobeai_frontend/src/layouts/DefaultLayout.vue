@@ -1,205 +1,170 @@
 <template>
-  <div class="layout-container">
-    <el-container class="layout-wrapper">
-      <el-header height="64px" class="layout-header">
-        <div class="header-content">
-          <div class="logo">
-            <router-link to="/" class="logo-link">
-              <h1>KobeAI</h1>
-            </router-link>
-          </div>
-          <div class="nav-menu">
-            <el-menu 
-              mode="horizontal" 
-              :router="true"
-              :default-active="activeMenu"
-              class="main-menu"
-            >
-              <el-menu-item index="/">首页</el-menu-item>
-              <el-menu-item index="/chat">对话</el-menu-item>
-            </el-menu>
-          </div>
-          <div class="user-actions">
-            <template v-if="authStore.isAuthenticated">
-              <UserProfile />
-            </template>
-            <template v-else>
-              <el-button type="primary" @click="$router.push('/auth/login')">
-                登录
-              </el-button>
-              <el-button @click="$router.push('/auth/register')">注册</el-button>
-            </template>
-          </div>
+  <div class="default-layout">
+    <header class="layout-header">
+      <div class="header-content">
+        <router-link to="/" class="logo">
+          <span class="logo-text">KobeAI</span>
+        </router-link>
+        <nav class="nav-links">
+          <router-link to="/" class="nav-link">首页</router-link>
+          <router-link to="/chat" class="nav-link">对话</router-link>
+        </nav>
+        <div class="header-right">
+          <template v-if="authStore.isAuthenticated">
+            <el-dropdown trigger="click">
+              <span class="user-trigger">
+                <el-avatar :size="32" :src="authStore.user?.avatar || '/ai-avatar.png'" />
+                <span class="username">{{ authStore.user?.username }}</span>
+              </span>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item @click="$router.push('/profile')">个人中心</el-dropdown-item>
+                  <el-dropdown-item @click="$router.push('/vip-plans')">会员套餐</el-dropdown-item>
+                  <el-dropdown-item divided @click="handleLogout">退出登录</el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
+          </template>
+          <template v-else>
+            <el-button type="primary" size="small" @click="$router.push('/auth/login')">登录</el-button>
+            <el-button size="small" @click="$router.push('/auth/register')">注册</el-button>
+          </template>
         </div>
-      </el-header>
-      <el-main class="layout-main">
-        <div class="main-content">
-          <router-view v-slot="{ Component }">
-            <transition name="fade" mode="out-in">
-              <component :is="Component" />
-            </transition>
-          </router-view>
-        </div>
-      </el-main>
-    </el-container>
+      </div>
+    </header>
+    <main class="layout-main">
+      <slot />
+    </main>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import { useAuthStore } from '../stores/auth'
+import { useRouter } from 'vue-router'
 import { ElMessageBox, ElMessage } from 'element-plus'
-import UserProfile from '../components/UserProfile.vue'
+import { useAuthStore } from '../stores/auth'
 
-const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 
-// 计算当前激活的菜单项
-const activeMenu = computed(() => {
-  return route.path
-})
-
-const handleLogout = async () => {
+async function handleLogout() {
   try {
-    await ElMessageBox.confirm(
-      '确定要退出登录吗？',
-      '提示',
-      {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
-        type: 'warning'
-      }
-    )
+    await ElMessageBox.confirm('确定要退出登录吗？', '提示', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning'
+    })
     await authStore.logout()
-  } catch (error) {
-    if (error !== 'cancel') {
-      ElMessage.error('退出失败，请刷新页面重试')
-      console.error('Logout failed:', error)
-    }
+    router.push('/')
+  } catch {
+    // 取消
   }
-}
-
-const handleUpgrade = () => {
-  router.push('/vip-plans')
 }
 </script>
 
 <style scoped>
-.layout-container {
+.default-layout {
   height: 100vh;
   width: 100vw;
-  overflow: hidden;
-}
-
-.layout-wrapper {
-  height: 100%;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
+  background: var(--bg-color-page, #f5f6f8);
 }
 
 .layout-header {
-  background-color: var(--el-bg-color);
-  border-bottom: 1px solid var(--el-border-color-light);
-  padding: 0;
-  position: relative;
-  z-index: 1000;
+  height: 56px;
+  flex-shrink: 0;
+  background: #fff;
+  border-bottom: 1px solid #e5e7eb;
+  z-index: 100;
 }
 
 .header-content {
   max-width: 1200px;
-  margin: 0 auto;
   height: 100%;
+  margin: 0 auto;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 0 20px;
+  padding: 0 24px;
+  gap: 32px;
 }
 
 .logo {
-  margin-right: 40px;
+  text-decoration: none;
   flex-shrink: 0;
 }
 
-.logo-link {
-  text-decoration: none;
-}
-
-.logo h1 {
-  margin: 0;
-  font-size: 24px;
-  background: linear-gradient(135deg, var(--el-color-primary) 0%, #409eff 100%);
+.logo-text {
+  font-size: 20px;
+  font-weight: 700;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
-  white-space: nowrap;
 }
 
-.nav-menu {
-  flex: 1;
-  min-width: 0;
-}
-
-.main-menu {
-  border-bottom: none !important;
-  background: transparent;
-}
-
-.user-actions {
+.nav-links {
   display: flex;
-  gap: 12px;
+  gap: 8px;
+  flex: 1;
+}
+
+.nav-link {
+  text-decoration: none;
+  color: #6b7280;
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 14px;
+  transition: all 0.15s ease;
+}
+
+.nav-link:hover,
+.nav-link.router-link-exact-active {
+  color: #6366f1;
+  background: #f3f4f6;
+}
+
+.header-right {
+  display: flex;
   align-items: center;
+  gap: 8px;
   flex-shrink: 0;
+}
+
+.user-trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 8px;
+  transition: background 0.15s;
+}
+
+.user-trigger:hover {
+  background: #f3f4f6;
+}
+
+.username {
+  font-size: 14px;
+  color: #374151;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .layout-main {
   flex: 1;
   overflow: hidden;
-  padding: 0;
-  position: relative;
 }
 
-.main-content {
-  height: 100%;
-  padding: 20px;
-  overflow-y: auto;
-}
-
-/* 响应式布局 */
 @media (max-width: 768px) {
   .header-content {
     padding: 0 12px;
+    gap: 16px;
   }
-  
-  .logo {
-    margin-right: 20px;
-  }
-  
-  .logo h1 {
-    font-size: 20px;
-  }
-
-  .main-content {
-    padding: 12px;
-  }
-  
-  .nav-menu :deep(.el-menu-item) {
-    padding: 0 10px;
-  }
-  
-  .user-actions {
-    gap: 8px;
+  .username {
+    display: none;
   }
 }
-
-/* 深色模式适配 */
-:root[data-theme='dark'] {
-  .layout-header {
-    background-color: var(--el-bg-color-overlay);
-  }
-  
-  .main-content {
-    background-color: var(--el-bg-color);
-  }
-}
-</style> 
+</style>

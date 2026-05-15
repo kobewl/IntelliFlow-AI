@@ -74,7 +74,7 @@ md.configure({
   linkify: true,     // 自动转换URL为链接
   html: true,        // 允许HTML标签
   typographer: true, // 启用一些语言中性的替换和引号美化
-  quotes: '""'''     // 设置引号样式
+  quotes: '“”‘’'
 })
 
 const renderedContent = ref('')

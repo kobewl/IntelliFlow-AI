@@ -28,7 +28,7 @@
           <el-upload
             v-if="isEditing"
             class="avatar-uploader"
-            :action="`${import.meta.env.VITE_API_BASE_URL.replace('/api', '')}/api/file/upload`"
+            :action="uploadUrl"
             :headers="{
               Authorization: `Bearer ${authStore.token}`
             }"
@@ -182,13 +182,13 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { useAuthStore } from '../stores/auth'
+import { useAuthStore } from '../../stores/auth'
 import { storeToRefs } from 'pinia'
 import { ElMessage } from 'element-plus'
 import dayjs from 'dayjs'
 import { ChatDotRound, Avatar, Bell, UserFilled } from '@element-plus/icons-vue'
 import type { FormInstance } from 'element-plus'
-import { UserRole, Gender, type User, isAdmin, isVIP, isSVIP } from '../types/user'
+import { UserRole, Gender, type User, isAdmin, isVIP, isSVIP } from '../../types/user'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -267,6 +267,11 @@ const membershipTagType = computed(() => {
   if (isUserSVIP.value) return 'success'
   if (isUserVIP.value) return 'warning'
   return 'info'
+})
+
+const uploadUrl = computed(() => {
+  const baseUrl = import.meta.env.VITE_API_BASE_URL || ''
+  return baseUrl ? `${baseUrl.replace('/api', '')}/api/file/upload` : '/api/file/upload'
 })
 
 const formatDate = (date: string) => {

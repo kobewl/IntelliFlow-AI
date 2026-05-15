@@ -53,7 +53,7 @@
             />
           </el-form-item>
           
-          <el-form-item label="邮箱" prop="email">
+          <el-form-item label="邮箱（可选）" prop="email">
             <el-input
               v-model="form.email"
               placeholder="请输入邮箱"
@@ -170,15 +170,12 @@ const rules: FormRules = {
     }
   ],
   email: [
-    { required: true, message: '请输入邮箱', trigger: 'blur' },
     { type: 'email', message: '请输入正确的邮箱格式', trigger: 'blur' }
   ],
   code: [
-    { required: true, message: '请输入验证码', trigger: 'blur' },
     { len: 6, message: '验证码长度为6位', trigger: 'blur' }
   ],
   phone: [
-    { required: true, message: '请输入手机号', trigger: 'blur' },
     { pattern: /^1[3-9]\d{9}$/, message: '请输入正确的手机号', trigger: 'blur' }
   ]
 }
@@ -190,10 +187,12 @@ const handleSubmit = async () => {
     await formRef.value?.validate()
     loading.value = true
     
-    // 先验证验证码
-    const verifyRes = await authApi.verifyEmailCode(form.email, form.code) as ApiResponse<EmailCodeResponse>
-    if (verifyRes.code !== 200) {
-      throw new Error(verifyRes.message || '验证码验证失败')
+    // 如果填了邮箱和验证码，先验证验证码
+    if (form.email && form.code) {
+      const verifyRes = await authApi.verifyEmailCode(form.email, form.code) as ApiResponse<EmailCodeResponse>
+      if (verifyRes.code !== 200) {
+        throw new Error(verifyRes.message || '验证码验证失败')
+      }
     }
     
     // 提交注册

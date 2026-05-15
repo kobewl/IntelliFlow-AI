@@ -88,14 +88,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed } from 'vue'
-import { useAuthStore } from '../stores/auth'
+import { ref, onMounted, computed } from 'vue'
+import { useAuthStore } from '../../stores/auth'
 import { ElMessage } from 'element-plus'
 import dayjs from 'dayjs'
-import { Client } from '@stomp/stompjs'
-
 const authStore = useAuthStore()
-const notifications = ref([])
+const notifications = ref<any[]>([])
 const createDialogVisible = ref(false)
 const newNotification = ref({
   title: '',
@@ -104,70 +102,6 @@ const newNotification = ref({
 })
 
 const isAdmin = computed(() => authStore.isAdmin)
-let stompClient: Client | null = null
-
-// WebSocket连接
-const connectWebSocket = () => {
-  try {
-    stompClient = new Client({
-      brokerURL: 'ws://localhost:8080/ws',
-      connectHeaders: {
-        Authorization: `Bearer ${authStore.token}`
-      },
-      debug: function (str) {
-        console.log('STOMP: ' + str)
-      },
-      reconnectDelay: 5000,
-      heartbeatIncoming: 4000,
-      heartbeatOutgoing: 4000
-    })
-
-    stompClient.onConnect = function () {
-      console.log('WebSocket Connected')
-      
-      // 订阅通知频道
-      stompClient?.subscribe('/topic/notifications', message => {
-        try {
-          const notification = JSON.parse(message.body)
-          notifications.value.unshift(notification)
-        } catch (error) {
-          console.error('Failed to parse notification:', error)
-        }
-      })
-      
-      // 订阅状态更新
-      stompClient?.subscribe('/topic/notifications/status', message => {
-        try {
-          const updatedNotification = JSON.parse(message.body)
-          const index = notifications.value.findIndex(n => n.id === updatedNotification.id)
-          if (index !== -1) {
-            notifications.value[index] = updatedNotification
-          }
-        } catch (error) {
-          console.error('Failed to parse status update:', error)
-        }
-      })
-      
-      // 订阅删除事件
-      stompClient?.subscribe('/topic/notifications/delete', message => {
-        try {
-          const deletedId = JSON.parse(message.body)
-          notifications.value = notifications.value.filter(n => n.id !== deletedId)
-        } catch (error) {
-          console.error('Failed to parse delete event:', error)
-        }
-      })
-    }
-
-    stompClient.onStompError = function (frame) {
-      console.error('STOMP error:', frame)
-    }
-
-    stompClient.activate()
-  } catch (error) {
-    console.error('Failed to initialize WebSocket:', error)
-  }
-}
 
 // 获取所有通知
 const fetchNotifications = async () => {
@@ -276,13 +210,6 @@ const showCreateDialog = () => {
 
 onMounted(() => {
   fetchNotifications()
-  connectWebSocket()
-})
-
-onUnmounted(() => {
-  if (stompClient) {
-    stompClient.deactivate()
-  }
 })
 </script>
 

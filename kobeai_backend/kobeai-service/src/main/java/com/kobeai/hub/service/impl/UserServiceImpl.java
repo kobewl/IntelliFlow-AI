@@ -97,12 +97,14 @@ public class UserServiceImpl implements UserService {
             }
 
             // 检查邮箱是否已存在
-            if (userRepository.findByEmail(request.getEmail()).isPresent()) {
+            if (request.getEmail() != null && !request.getEmail().isEmpty()
+                    && userRepository.findByEmail(request.getEmail()).isPresent()) {
                 return ApiResponse.error("Emile has bean exist");
             }
 
             // 检查手机号是否已存在
-            if (userRepository.findByPhone(request.getPhone()).isPresent()) {
+            if (request.getPhone() != null && !request.getPhone().isEmpty()
+                    && userRepository.findByPhone(request.getPhone()).isPresent()) {
                 return ApiResponse.error("Mobile phone number has been registered");
             }
 
@@ -110,8 +112,8 @@ public class UserServiceImpl implements UserService {
             User user = new User();
             user.setUsername(request.getUsername());
             user.setPassword(passwordEncoder.encode(request.getPassword()));
-            user.setEmail(request.getEmail());
-            user.setPhone(request.getPhone());
+            user.setEmail(request.getEmail() != null ? request.getEmail() : "");
+            user.setPhone(request.getPhone() != null ? request.getPhone() : "");
             user.setUserRole(UserRole.NORMAL); // 设置默认角色
 
             // 保存用户
