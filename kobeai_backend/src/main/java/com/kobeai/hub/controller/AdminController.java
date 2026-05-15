@@ -9,8 +9,8 @@ import com.kobeai.hub.model.User;
 import com.kobeai.hub.model.User.UserRole;
 import com.kobeai.hub.service.NotificationService;
 import com.kobeai.hub.service.UserService;
-import io.swagger.annotations.Api;
-import io.swagger.annotations.ApiOperation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.Operation;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -25,7 +25,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/admin")
 @RequiredArgsConstructor
-@Api(tags = "管理员接口")
+@Tag(name = "管理员接口")
 @Slf4j
 public class AdminController {
 
@@ -33,7 +33,7 @@ public class AdminController {
     private final NotificationService notificationService;
 
     @GetMapping("/users")
-    @ApiOperation("获取用户列表")
+    @Operation(summary = "获取用户列表")
     public ApiResponse<?> getUserList(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
@@ -50,7 +50,7 @@ public class AdminController {
     }
 
     @PostMapping("/users")
-    @ApiOperation("添加用户")
+    @Operation(summary = "添加用户")
     public ApiResponse<?> addUser(@RequestBody UserRequest request) {
         try {
             User user = userService.addUser(request);
@@ -62,7 +62,7 @@ public class AdminController {
     }
 
     @PutMapping("/users/{id}")
-    @ApiOperation("更新用户信息")
+    @Operation(summary = "更新用户信息")
     public ApiResponse<?> updateUser(@PathVariable Long id, @RequestBody UserRequest request) {
         try {
             User user = userService.updateUser(id, convertToUpdateRequest(request));
@@ -74,7 +74,7 @@ public class AdminController {
     }
 
     @DeleteMapping("/users/{id}")
-    @ApiOperation("删除用户")
+    @Operation(summary = "删除用户")
     public ApiResponse<?> deleteUser(@PathVariable Long id) {
         try {
             userService.deleteUser(id);
@@ -86,7 +86,7 @@ public class AdminController {
     }
 
     @PutMapping("/users/{id}/role")
-    @ApiOperation("设置用户角色")
+    @Operation(summary = "设置用户角色")
     public ApiResponse<?> setUserRole(@PathVariable Long id, @RequestBody UserRequest request) {
         try {
             User user = userService.setUserRole(id, request.getUserRole(), request.getMembershipEndTime());
@@ -98,7 +98,7 @@ public class AdminController {
     }
 
     @GetMapping("/notifications")
-    @ApiOperation("获取通知列表")
+    @Operation(summary = "获取通知列表")
     public ApiResponse<?> getNotificationList(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
@@ -115,7 +115,7 @@ public class AdminController {
     }
 
     @PostMapping("/notifications")
-    @ApiOperation("添加通知")
+    @Operation(summary = "添加通知")
     public ApiResponse<?> addNotification(@RequestBody NotificationRequest request) {
         try {
             Notification notification = notificationService.addNotification(request);
@@ -127,7 +127,7 @@ public class AdminController {
     }
 
     @PutMapping("/notifications/{id}")
-    @ApiOperation("更新通知")
+    @Operation(summary = "更新通知")
     public ApiResponse<?> updateNotification(@PathVariable Long id, @RequestBody NotificationRequest request) {
         try {
             Notification notification = notificationService.updateNotification(id, request);
@@ -139,7 +139,7 @@ public class AdminController {
     }
 
     @DeleteMapping("/notifications/{id}")
-    @ApiOperation("删除通知")
+    @Operation(summary = "删除通知")
     public ApiResponse<?> deleteNotification(@PathVariable Long id) {
         try {
             notificationService.deleteNotification(id);
@@ -151,7 +151,7 @@ public class AdminController {
     }
 
     @PutMapping("/notifications/{id}/status")
-    @ApiOperation("更新通知状态")
+    @Operation(summary = "更新通知状态")
     public ApiResponse<?> updateNotificationStatus(@PathVariable Long id, @RequestParam String status) {
         try {
             Notification notification = notificationService.updateNotificationStatus(id, status);
@@ -163,7 +163,7 @@ public class AdminController {
     }
 
     @GetMapping("/stats")
-    @ApiOperation("获取统计数据")
+    @Operation(summary = "获取统计数据")
     public ApiResponse<?> getStats() {
         try {
             Map<String, Object> stats = new HashMap<>();
