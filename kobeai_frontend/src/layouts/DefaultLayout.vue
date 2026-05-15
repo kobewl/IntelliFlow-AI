@@ -48,7 +48,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useAuthStore } from '../store/auth'
+import { useAuthStore } from '../stores/auth'
 import { ElMessageBox, ElMessage } from 'element-plus'
 import UserProfile from '../components/UserProfile.vue'
 

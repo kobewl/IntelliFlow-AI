@@ -2,7 +2,7 @@
   <div class="user-home">
     <!-- 欢迎标语 -->
     <div class="welcome-section">
-      <h1>欢迎使用 KobeAI 智能助手平台，{{ userStore.userInfo?.username }}</h1>
+      <h1>欢迎使用 KobeAI 智能助手平台，{{ userStore.username }}</h1>
       <p>一站式智能服务平台，为您提供全方位的AI助手服务</p>
     </div>
 

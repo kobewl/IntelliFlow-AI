@@ -140,7 +140,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { useAuthStore } from '../store/auth'
+import { useAuthStore } from '../stores/auth'
 import { 
   User, 
   ChatDotRound, 

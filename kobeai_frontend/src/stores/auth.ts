@@ -1,169 +1,268 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { authApi } from '../api/auth'
+import { useRouter } from 'vue-router'
+import { ElMessage } from 'element-plus'
 import type { User } from '../types/user'
 import { UserRole, isAdmin, isVIP, isSVIP } from '../types/user'
-import type { ApiResponse } from '../api/types'
-
-export interface AuthState {
-  user: User | null
-  token: string | null
-}
+import { authApi, isTokenValid, getAuthToken, clearAuth } from '../api/auth'
 
 export const useAuthStore = defineStore('auth', () => {
-  const user = ref<User | null>(null)
   const token = ref<string | null>(null)
+  const user = ref<User | null>(null)
+  const loading = ref(false)
+  const error = ref<string | null>(null)
+  const router = useRouter()
 
-  // 计算属性
+  const isAuthenticated = computed(() => {
+    return !!user.value && !!token.value && isTokenValid()
+  })
+
   const isUserAdmin = computed(() => isAdmin(user.value))
   const isUserVIP = computed(() => isVIP(user.value))
   const isUserSVIP = computed(() => isSVIP(user.value))
 
-  // 初始化用户信息
-  function initUser() {
-    const storedUser = localStorage.getItem('user')
-    const storedToken = localStorage.getItem('token')
-    if (storedUser) {
-      const userData = JSON.parse(storedUser)
-      // 确保用户数据包含默认头像
-      if (!userData.avatar) {
-        userData.avatar = '/ai-avatar.png'
+  async function initializeAuth() {
+    try {
+      const { token: storedToken } = getAuthToken()
+      if (!storedToken || !isTokenValid()) {
+        clearAuth()
+        return false
       }
-      user.value = userData
-    }
-    if (storedToken) {
+
       token.value = storedToken
-    }
-  }
-
-  // 设置用户信息
-  function setUser(newUser: User | null) {
-    user.value = newUser
-    if (newUser) {
-      localStorage.setItem('user', JSON.stringify(newUser))
-    } else {
-      localStorage.removeItem('user')
-    }
-  }
-
-  // 设置 token
-  function setToken(newToken: string | null) {
-    token.value = newToken
-    if (newToken) {
-      localStorage.setItem('token', newToken)
-    } else {
-      localStorage.removeItem('token')
-    }
-  }
-
-  // 登录
-  async function login(username: string, password: string) {
-    const response = await authApi.login(username, password)
-    if (response.code === 200 && response.data) {
-      const userData = response.data.user
-      // 确保用户数据包含默认头像
-      if (!userData.avatar) {
-        userData.avatar = '/ai-avatar.png'
+      const storedUser = localStorage.getItem('user')
+      if (storedUser) {
+        user.value = JSON.parse(storedUser)
+      } else {
+        await getCurrentUserInfo()
       }
-      setUser(userData)
-      setToken(response.data.token)
+      return true
+    } catch (err) {
+      console.error('Failed to initialize auth:', err)
+      clearAuth()
+      return false
     }
-    return response
   }
 
-  // 注册
+  async function login(username: string, password: string) {
+    try {
+      loading.value = true
+      error.value = null
+      const response = await authApi.login(username, password)
+
+      if (response.code === 200 && response.data) {
+        token.value = response.data.token
+        const userData = response.data.user
+        if (!userData.avatar) {
+          userData.avatar = '/ai-avatar.png'
+        }
+        user.value = userData
+        return true
+      }
+
+      throw new Error(response.message || '登录失败')
+    } catch (err: any) {
+      error.value = err.message
+      throw err
+    } finally {
+      loading.value = false
+    }
+  }
+
   async function register(username: string, password: string, email?: string) {
-    const response = await authApi.register(username, password, email)
-    return response
+    try {
+      loading.value = true
+      error.value = null
+      const response = await authApi.register(username, password, email)
+
+      if (response.code === 200) {
+        return true
+      }
+
+      throw new Error(response.message || '注册失败')
+    } catch (err: any) {
+      error.value = err.message
+      throw err
+    } finally {
+      loading.value = false
+    }
   }
 
-  // 登出
+  async function getCurrentUserInfo() {
+    if (!token.value) return
+
+    try {
+      loading.value = true
+      error.value = null
+      const response = await authApi.getProfile()
+
+      if (response.code === 200) {
+        user.value = response.data
+        localStorage.setItem('user', JSON.stringify(response.data))
+      } else {
+        throw new Error(response.message || '获取用户信息失败')
+      }
+    } catch (err: any) {
+      error.value = err.message
+      throw err
+    } finally {
+      loading.value = false
+    }
+  }
+
+  // getProfile 作为 getCurrentUserInfo 的别名，兼容新旧调用方
+  async function getProfile() {
+    if (!token.value) return
+
+    try {
+      loading.value = true
+      error.value = null
+      const response = await authApi.getProfile()
+
+      if (response.code === 200 && response.data) {
+        const userData = response.data
+        if (!userData.avatar) {
+          userData.avatar = '/ai-avatar.png'
+        }
+        user.value = userData
+        localStorage.setItem('user', JSON.stringify(userData))
+      }
+      return response
+    } catch (err: any) {
+      error.value = err.message
+      throw err
+    } finally {
+      loading.value = false
+    }
+  }
+
   async function logout() {
     try {
-      await authApi.logout()
-    } finally {
-      setUser(null)
-      setToken(null)
-    }
-  }
+      loading.value = true
+      error.value = null
 
-  // 获取用户信息
-  async function getProfile() {
-    const response = await authApi.getProfile()
-    if (response.code === 200 && response.data) {
-      const userData = response.data
-      // 确保用户数据包含默认头像
-      if (!userData.avatar) {
-        userData.avatar = '/ai-avatar.png'
+      try {
+        await authApi.logout()
+      } catch (err) {
+        console.warn('Backend logout failed:', err)
       }
-      setUser(userData)
+
+      token.value = null
+      user.value = null
+
+      const preserveKeys = ['theme']
+      Object.keys(localStorage).forEach(key => {
+        if (!preserveKeys.includes(key)) {
+          localStorage.removeItem(key)
+        }
+      })
+
+      sessionStorage.clear()
+      clearAuth()
+      loading.value = false
+      router.replace('/')
+
+      return true
+    } catch (err: any) {
+      console.error('Logout failed:', err)
+      error.value = err.message || '退出失败'
+      throw error.value
+    } finally {
+      loading.value = false
     }
-    return response
   }
 
-  // 更新用户信息
+  function clearAuthState() {
+    token.value = null
+    user.value = null
+
+    const preserveKeys = ['theme']
+    Object.keys(localStorage).forEach(key => {
+      if (!preserveKeys.includes(key)) {
+        localStorage.removeItem(key)
+      }
+    })
+    sessionStorage.clear()
+    clearAuth()
+  }
+
   async function updateProfile(data: Partial<User>) {
     try {
+      loading.value = true
+      error.value = null
+
       if (!user.value?.id) {
         throw new Error('用户未登录')
       }
 
-      // 确保包含用户ID
       const updateData = {
         ...data,
         id: user.value.id
       }
 
       const response = await authApi.updateProfile(updateData)
+
       if (response.code === 200 && response.data) {
-        // 更新本地存储的用户信息，保持敏感字段不变
         const updatedUser = {
           ...user.value,
           ...response.data,
-          userRole: user.value.userRole, // 保持原有角色
+          userRole: user.value.userRole,
           membershipStartTime: user.value.membershipStartTime,
           membershipEndTime: user.value.membershipEndTime
         }
-        setUser(updatedUser)
-        return response
+        user.value = updatedUser
+        localStorage.setItem('user', JSON.stringify(updatedUser))
+        return true
       }
+
       throw new Error(response.message || '更新用户信息失败')
-    } catch (error: any) {
-      console.error('Update profile error:', error)
-      throw new Error(error.message || '更新用户信息失败')
+    } catch (err: any) {
+      error.value = err.message
+      throw err
+    } finally {
+      loading.value = false
     }
   }
 
-  // 修改密码
   async function changePassword(currentPassword: string, newPassword: string) {
     try {
+      loading.value = true
+      error.value = null
       const response = await authApi.changePassword({
         currentPassword,
         newPassword
       })
+
       if (response.code === 200) {
-        return response
+        return true
       }
+
       throw new Error(response.message || '修改密码失败')
-    } catch (error: any) {
-      throw new Error(error.message || '修改密码失败')
+    } catch (err: any) {
+      error.value = err.message
+      throw err
+    } finally {
+      loading.value = false
     }
   }
 
   return {
-    user,
     token,
+    user,
+    loading,
+    error,
+    isAuthenticated,
     isUserAdmin,
     isUserVIP,
     isUserSVIP,
-    initUser,
-    setUser,
-    setToken,
     login,
-    register,
     logout,
+    register,
+    getCurrentUserInfo,
     getProfile,
+    clearAuthState,
+    initializeAuth,
     updateProfile,
     changePassword
   }
-}) 
+})

@@ -60,7 +60,7 @@ for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
 }
 
 // 初始化设置
-import { useSettingsStore } from './store/settings'
+import { useSettingsStore } from './stores/settings'
 const settingsStore = useSettingsStore()
 settingsStore.applySettings(settingsStore.settings)
 

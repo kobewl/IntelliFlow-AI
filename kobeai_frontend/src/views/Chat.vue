@@ -124,7 +124,7 @@ import {
   Paperclip
 } from '@element-plus/icons-vue'
 import { useAuthStore } from '../stores/auth'
-import { useChatStore } from '../store/chat'
+import { useChatStore } from '../stores/chat'
 import ConversationList from '../components/ConversationList.vue'
 import VirtualMessageList from '../components/VirtualMessageList.vue'
 import UserProfile from '../components/UserProfile.vue'

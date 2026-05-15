@@ -1,203 +1,462 @@
 <template>
-  <div class="home-container">
-    <div class="user-profile">
-      <div class="user-header">
-        <el-avatar :size="64" :src="userInfo?.avatar || '/default-avatar.png'" />
-        <div class="user-info">
-          <h2>{{ userInfo?.username }}</h2>
-          <p class="user-role">{{ formatRole(userInfo?.userRole) }}</p>
-        </div>
-      </div>
-      
-      <div class="user-details">
-        <div class="detail-item">
-          <el-icon><Message /></el-icon>
-          <span>{{ userInfo?.email || '未设置邮箱' }}</span>
-        </div>
-        <div class="detail-item">
-          <el-icon><Phone /></el-icon>
-          <span>{{ userInfo?.phone || '未设置手机' }}</span>
-        </div>
-        <div class="detail-item">
-          <el-icon><Timer /></el-icon>
-          <span>会员到期时间：{{ formatDate(userInfo?.membershipEndTime) }}</span>
-        </div>
-        <div class="detail-item">
-          <el-icon><Edit /></el-icon>
-          <span>{{ userInfo?.bio || '这个人很懒，什么都没写~' }}</span>
-        </div>
-      </div>
-
-      <div class="action-buttons">
-        <el-button type="primary" @click="handleEditProfile">编辑资料</el-button>
-        <el-button type="success" @click="handleUpgrade">升级会员</el-button>
-      </div>
+  <div class="home">
+    <div class="bg-animation">
+      <div class="gradient-bg"></div>
+      <div class="cyber-grid"></div>
     </div>
 
-    <el-divider />
+    <!-- 第一页：主标题和按钮 -->
+    <section class="hero" v-show="currentPage === 1" :class="{ 'fade-out': isTransitioning }">
+      <div class="hero-content">
+        <div class="logo-container">
+          <div class="logo-circle">
+            <el-icon :size="40" color="var(--el-color-primary)">
+              <ChatRound />
+            </el-icon>
+          </div>
+          <h1>KobeAI</h1>
+        </div>
+        <div class="tagline">
+          <h2>智能对话，从未如此简单</h2>
+          <p class="subtitle">智能对话助手，为您提供便捷的智能服务</p>
+        </div>
+        <div class="cta-buttons">
+          <el-button
+            type="primary"
+            size="large"
+            class="cta-button"
+            @click="$router.push('/auth/login')"
+          >
+            立即登录
+            <el-icon class="el-icon--right"><ArrowRight /></el-icon>
+          </el-button>
+          <el-button
+            size="large"
+            class="cta-button outline"
+            @click="$router.push('/auth/register')"
+          >
+            免费注册
+            <el-icon class="el-icon--right"><ArrowRight /></el-icon>
+          </el-button>
+        </div>
+        <div class="scroll-hint" @click="switchPage(2)">
+          <span>了解更多</span>
+          <el-icon class="scroll-icon"><ArrowDown /></el-icon>
+        </div>
+      </div>
+    </section>
 
-    <div class="quick-actions">
-      <el-row :gutter="20">
-        <el-col :span="8">
-          <div class="action-card" @click="router.push('/chat')">
-            <el-icon><ChatDotRound /></el-icon>
-            <h3>开始对话</h3>
-            <p>与AI助手进行智能对话</p>
+    <!-- 第二页：特性介绍 -->
+    <section class="features" v-show="currentPage === 2" :class="{ 'fade-in': isTransitioning }">
+      <div class="back-to-top" @click="switchPage(1)">
+        <el-icon class="back-icon"><ArrowUp /></el-icon>
+        <span>返回</span>
+      </div>
+      <div class="features-grid">
+        <div class="feature-card" v-for="(feature, index) in features" :key="index">
+          <div class="feature-content">
+            <div class="feature-icon">
+              <el-icon :size="36">
+                <component :is="feature.icon" />
+              </el-icon>
+            </div>
+            <h3>{{ feature.title }}</h3>
+            <p v-html="feature.description"></p>
           </div>
-        </el-col>
-        <el-col :span="8">
-          <div class="action-card" @click="router.push('/templates')">
-            <el-icon><Document /></el-icon>
-            <h3>提示词模板</h3>
-            <p>使用预设模板快速开始</p>
-          </div>
-        </el-col>
-        <el-col :span="8">
-          <div class="action-card" @click="router.push('/notifications')">
-            <el-icon><Bell /></el-icon>
-            <h3>系统通知</h3>
-            <p>查看最新系统通知</p>
-          </div>
-        </el-col>
-      </el-row>
-    </div>
+        </div>
+      </div>
+    </section>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
-import { useUserStore } from '@/stores/user'
-import {
-  Message,
-  Phone,
-  Timer,
-  Edit,
-  ChatDotRound,
-  Document,
-  Bell
-} from '@element-plus/icons-vue'
+import { ref } from 'vue'
+import { ArrowRight, ArrowDown, ArrowUp, ChatRound, Timer, Lock, Connection } from '@element-plus/icons-vue'
 
-const router = useRouter()
-const userStore = useUserStore()
-const userInfo = ref(userStore.userInfo)
+const currentPage = ref(1)
+const isTransitioning = ref(false)
 
-// 格式化用户角色
-const formatRole = (role: string) => {
-  const roleMap = {
-    'NORMAL': '普通用户',
-    'VIP': 'VIP会员',
-    'SVIP': 'SVIP会员',
-    'ADMIN': '管理员'
+const features = [
+  {
+    icon: 'ChatRound',
+    title: '智能对话',
+    description: '基于先进的AI模型<br>提供流畅自然的对话体验'
+  },
+  {
+    icon: 'Timer',
+    title: '快速响应',
+    description: '毫秒级响应速度<br>让您的对话畅通无阻'
+  },
+  {
+    icon: 'Lock',
+    title: '安全可靠',
+    description: '严格的数据加密<br>和隐私保护机制'
+  },
+  {
+    icon: 'Connection',
+    title: '多场景支持',
+    description: '适配多种对话场景<br>满足不同需求'
   }
-  return roleMap[role] || role
-}
+]
 
-// 格式化日期
-const formatDate = (date: string) => {
-  if (!date) return '未开通会员'
-  return new Date(date).toLocaleDateString()
+const switchPage = (page: number) => {
+  isTransitioning.value = true
+  setTimeout(() => {
+    currentPage.value = page
+    setTimeout(() => {
+      isTransitioning.value = false
+    }, 300)
+  }, 300)
 }
-
-// 处理编辑资料
-const handleEditProfile = () => {
-  router.push('/profile/edit')
-}
-
-// 处理升级会员
-const handleUpgrade = () => {
-  router.push('/membership')
-}
-
-onMounted(() => {
-  // 如果需要，这里可以重新获取最新的用户信息
-  userStore.getUserInfo()
-})
 </script>
 
 <style scoped>
-.home-container {
-  padding: 20px;
-  max-width: 1200px;
-  margin: 0 auto;
+.home {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #f5f7fa 0%, #e4e7eb 100%);
+  position: relative;
+  overflow: hidden;
 }
 
-.user-profile {
-  background: var(--el-bg-color);
-  padding: 20px;
-  border-radius: 8px;
-  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+.bg-animation {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
 }
 
-.user-header {
+.gradient-bg {
+  position: absolute;
+  width: 150vw;
+  height: 150vh;
+  top: -25vh;
+  left: -25vw;
+  background: radial-gradient(circle at center,
+    rgba(var(--el-color-primary-rgb), 0.1) 0%,
+    rgba(var(--el-color-primary-rgb), 0.05) 25%,
+    transparent 100%
+  );
+  animation: rotate 60s linear infinite;
+  transform-origin: center center;
+}
+
+.cyber-grid {
+  position: absolute;
+  width: 200%;
+  height: 200%;
+  top: -50%;
+  left: -50%;
+  background-image: 
+    linear-gradient(rgba(var(--el-color-primary-rgb), 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(var(--el-color-primary-rgb), 0.03) 1px, transparent 1px);
+  background-size: 50px 50px;
+  transform: perspective(1000px) rotateX(60deg);
+  animation: grid-move 20s linear infinite;
+}
+
+.hero, .features {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  min-height: 100vh;
   display: flex;
   align-items: center;
-  gap: 20px;
-  margin-bottom: 20px;
+  justify-content: center;
+  padding: 40px 24px;
+  transition: opacity 0.6s ease, transform 0.6s ease;
 }
 
-.user-info h2 {
+.fade-out {
+  opacity: 0;
+  transform: translateY(-20px);
+}
+
+.fade-in {
+  opacity: 0;
+  transform: translateY(20px);
+}
+
+.hero-content {
+  max-width: 800px;
+  text-align: center;
+}
+
+.logo-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-bottom: 48px;
+  animation: fadeInDown 1s ease;
+}
+
+.logo-circle {
+  width: 80px;
+  height: 80px;
+  border-radius: 40px;
+  background: linear-gradient(135deg, var(--el-color-primary-light-8) 0%, var(--el-color-primary-light-9) 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 12px 24px rgba(var(--el-color-primary-rgb), 0.15);
+  transition: transform 0.3s ease;
+}
+
+.logo-circle:hover {
+  transform: scale(1.05) rotate(5deg);
+}
+
+h1 {
+  font-size: 48px;
+  font-weight: 700;
   margin: 0;
+  background: linear-gradient(135deg, var(--el-color-primary) 0%, #409eff 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.tagline {
+  margin-bottom: 64px;
+  animation: fadeInUp 1s ease 0.3s both;
+}
+
+h2 {
+  font-size: 64px;
+  font-weight: 600;
   color: var(--el-text-color-primary);
+  margin: 0 0 24px;
+  line-height: 1.2;
 }
 
-.user-info .user-role {
-  margin: 5px 0 0;
-  color: var(--el-text-color-secondary);
+.subtitle {
+  font-size: 24px;
+  color: var(--el-text-color-regular);
+  margin: 0;
 }
 
-.user-details .detail-item {
+.cta-buttons {
   display: flex;
+  gap: 24px;
+  justify-content: center;
+  margin-bottom: 80px;
+  animation: fadeInUp 1s ease 0.6s both;
+}
+
+.cta-button {
+  min-width: 180px;
+  height: 56px;
+  font-size: 18px;
+  font-weight: 500;
+  border-radius: 28px;
+  transition: all 0.3s ease;
+}
+
+.cta-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 32px rgba(var(--el-color-primary-rgb), 0.2);
+}
+
+.scroll-hint {
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 15px;
+  gap: 8px;
+  cursor: pointer;
+  animation: bounce 2s infinite;
+  opacity: 0.6;
+  transition: opacity 0.3s ease;
+}
+
+.scroll-hint:hover {
+  opacity: 1;
+}
+
+.scroll-hint span {
+  font-size: 16px;
   color: var(--el-text-color-regular);
 }
 
-.user-details .detail-item .el-icon {
-  font-size: 18px;
+.scroll-icon {
+  font-size: 24px;
   color: var(--el-color-primary);
 }
 
-.action-buttons {
+.back-to-top {
+  position: absolute;
+  top: 40px;
+  left: 50%;
+  transform: translateX(-50%);
   display: flex;
-  gap: 15px;
-  margin-top: 20px;
-}
-
-.quick-actions {
-  margin-top: 30px;
-}
-
-.action-card {
-  background: var(--el-bg-color);
-  border-radius: 8px;
-  padding: 20px;
-  text-align: center;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
   cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+  opacity: 0.6;
+  transition: opacity 0.3s ease;
 }
 
-.action-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 4px 16px 0 rgba(0, 0, 0, 0.2);
+.back-to-top:hover {
+  opacity: 1;
 }
 
-.action-card .el-icon {
-  font-size: 40px;
+.back-icon {
+  font-size: 24px;
   color: var(--el-color-primary);
-  margin-bottom: 15px;
 }
 
-.action-card h3 {
-  margin: 10px 0;
+.features-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 32px;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 80px 24px;
+}
+
+.feature-card {
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 32px;
+  box-shadow: 
+    0 4px 6px rgba(0, 0, 0, 0.02),
+    0 10px 15px rgba(0, 0, 0, 0.03);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  transition: all 0.3s ease;
+}
+
+.feature-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 
+    0 8px 12px rgba(0, 0, 0, 0.03),
+    0 16px 24px rgba(0, 0, 0, 0.04);
+}
+
+.feature-content {
+  padding: 48px;
+  text-align: center;
+}
+
+.feature-icon {
+  width: 80px;
+  height: 80px;
+  margin: 0 auto 32px;
+  background: linear-gradient(135deg, var(--el-color-primary-light-8) 0%, var(--el-color-primary-light-9) 100%);
+  border-radius: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--el-color-primary);
+  transition: all 0.3s ease;
+}
+
+.feature-card:hover .feature-icon {
+  transform: scale(1.1) rotate(5deg);
+  background: linear-gradient(135deg, var(--el-color-primary-light-7) 0%, var(--el-color-primary-light-8) 100%);
+}
+
+.feature-card h3 {
+  font-size: 28px;
+  font-weight: 600;
   color: var(--el-text-color-primary);
+  margin: 0 0 16px;
 }
 
-.action-card p {
-  color: var(--el-text-color-secondary);
-  font-size: 14px;
+.feature-card p {
+  font-size: 16px;
+  color: var(--el-text-color-regular);
   margin: 0;
+  line-height: 1.8;
+}
+
+@keyframes fadeInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes bounce {
+  0%, 20%, 50%, 80%, 100% {
+    transform: translateY(0);
+  }
+  40% {
+    transform: translateY(-10px);
+  }
+  60% {
+    transform: translateY(-5px);
+  }
+}
+
+@keyframes rotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes grid-move {
+  0% { transform: perspective(1000px) rotateX(60deg) translateY(0); }
+  100% { transform: perspective(1000px) rotateX(60deg) translateY(50px); }
+}
+
+@media (max-width: 768px) {
+  .hero-content {
+    padding: 20px;
+  }
+
+  h1 {
+    font-size: 36px;
+  }
+
+  h2 {
+    font-size: 48px;
+  }
+
+  .subtitle {
+    font-size: 20px;
+  }
+
+  .cta-buttons {
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .cta-button {
+    width: 100%;
+  }
+
+  .features-grid {
+    grid-template-columns: 1fr;
+    padding: 60px 20px;
+    gap: 24px;
+  }
+
+  .feature-content {
+    padding: 32px;
+  }
+
+  .feature-card h3 {
+    font-size: 24px;
+  }
 }
 </style> 

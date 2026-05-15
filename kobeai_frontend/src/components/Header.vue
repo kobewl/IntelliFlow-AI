@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { useAuthStore } from '../store/auth'
+import { useAuthStore } from '../stores/auth'
 import { ElMessage } from 'element-plus'
 
 const authStore = useAuthStore()

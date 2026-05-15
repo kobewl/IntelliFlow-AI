@@ -84,7 +84,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { User, Lock, ArrowRight, ChatRound } from '@element-plus/icons-vue'
 import type { FormInstance, FormRules } from 'element-plus'
-import { useAuthStore } from '../../store/auth'
+import { useAuthStore } from '../../stores/auth'
 
 const router = useRouter()
 const route = useRoute()

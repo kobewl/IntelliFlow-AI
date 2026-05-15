@@ -1,41 +1,54 @@
 import { defineStore } from 'pinia'
+import { ref } from 'vue'
 
-interface UserState {
-  token: string
-  avatar: string
-  username: string
-}
+export const useUserStore = defineStore('user', () => {
+  // 用户资料（展示用，认证数据由 auth store 管理）
+  const avatar = ref(localStorage.getItem('avatar') || '')
+  const username = ref(localStorage.getItem('username') || '')
 
-export const useUserStore = defineStore('user', {
-  state: (): UserState => ({
-    token: localStorage.getItem('token') || '',
-    avatar: localStorage.getItem('avatar') || '',
-    username: localStorage.getItem('username') || ''
-  }),
+  // 消息计数
+  const todayMessageCount = ref(0)
+  const dailyMessageLimit = ref(100)
 
-  actions: {
-    setToken(token: string) {
-      this.token = token
-      localStorage.setItem('token', token)
-    },
-
-    setAvatar(avatar: string) {
-      this.avatar = avatar
-      localStorage.setItem('avatar', avatar)
-    },
-
-    setUsername(username: string) {
-      this.username = username
-      localStorage.setItem('username', username)
-    },
-
-    clearUserInfo() {
-      this.token = ''
-      this.avatar = ''
-      this.username = ''
-      localStorage.removeItem('token')
-      localStorage.removeItem('avatar')
-      localStorage.removeItem('username')
-    }
+  function setAvatar(newAvatar: string) {
+    avatar.value = newAvatar
+    localStorage.setItem('avatar', newAvatar)
   }
-}) 
+
+  function setUsername(newUsername: string) {
+    username.value = newUsername
+    localStorage.setItem('username', newUsername)
+  }
+
+  function clearUserInfo() {
+    avatar.value = ''
+    username.value = ''
+    localStorage.removeItem('avatar')
+    localStorage.removeItem('username')
+  }
+
+  function incrementMessageCount() {
+    todayMessageCount.value++
+  }
+
+  function resetMessageCount() {
+    todayMessageCount.value = 0
+  }
+
+  function setDailyMessageLimit(limit: number) {
+    dailyMessageLimit.value = limit
+  }
+
+  return {
+    avatar,
+    username,
+    todayMessageCount,
+    dailyMessageLimit,
+    setAvatar,
+    setUsername,
+    clearUserInfo,
+    incrementMessageCount,
+    resetMessageCount,
+    setDailyMessageLimit
+  }
+})

@@ -1,279 +1,345 @@
 <template>
   <div class="admin-home">
-    <!-- 欢迎标语 -->
-    <div class="welcome-section">
-      <h1>欢迎回来，{{ userStore.userInfo?.username }}</h1>
-      <p>管理员控制面板</p>
-    </div>
+    <el-row :gutter="20" class="welcome-section">
+      <el-col :span="24">
+        <el-card>
+          <div class="welcome-content">
+            <h1>欢迎回来，{{ authStore.user?.username }}</h1>
+            <p>管理员控制面板</p>
+          </div>
+        </el-card>
+      </el-col>
+    </el-row>
 
-    <!-- 数据统计卡片 -->
-    <div class="statistics">
-      <el-row :gutter="20">
-        <el-col :span="6">
-          <el-card class="stat-card">
-            <div class="stat-content">
-              <h3>总用户数</h3>
-              <p class="stat-number">{{ stats.totalUsers || 0 }}</p>
-              <div class="stat-trend">
-                <span>较昨日</span>
-                <span class="trend-up">+{{ stats.newUsers || 0 }}</span>
-              </div>
+    <el-row :gutter="20" class="stats-section">
+      <el-col :span="6">
+        <el-card shadow="hover">
+          <div class="stat-item">
+            <el-icon class="stat-icon"><User /></el-icon>
+            <div class="stat-info">
+              <span class="stat-label">总用户数</span>
+              <span class="stat-value">{{ stats.totalUsers }}</span>
             </div>
-          </el-card>
-        </el-col>
-        <el-col :span="6">
-          <el-card class="stat-card">
-            <div class="stat-content">
-              <h3>今日对话数</h3>
-              <p class="stat-number">{{ stats.todayChats || 0 }}</p>
-              <div class="stat-trend">
-                <span>较昨日</span>
-                <span class="trend-up">+{{ stats.chatIncrease || 0 }}%</span>
-              </div>
+          </div>
+        </el-card>
+      </el-col>
+      <el-col :span="6">
+        <el-card shadow="hover">
+          <div class="stat-item">
+            <el-icon class="stat-icon"><ChatDotRound /></el-icon>
+            <div class="stat-info">
+              <span class="stat-label">今日对话数</span>
+              <span class="stat-value">{{ stats.todayChats }}</span>
             </div>
-          </el-card>
-        </el-col>
-        <el-col :span="6">
-          <el-card class="stat-card">
-            <div class="stat-content">
-              <h3>VIP用户数</h3>
-              <p class="stat-number">{{ stats.vipUsers || 0 }}</p>
-              <div class="stat-trend">
-                <span>转化率</span>
-                <span class="trend-up">{{ stats.vipRate || 0 }}%</span>
-              </div>
+          </div>
+        </el-card>
+      </el-col>
+      <el-col :span="6">
+        <el-card shadow="hover">
+          <div class="stat-item">
+            <el-icon class="stat-icon"><Star /></el-icon>
+            <div class="stat-info">
+              <span class="stat-label">会员用户数</span>
+              <span class="stat-value">{{ stats.vipUsers }}</span>
             </div>
-          </el-card>
-        </el-col>
-        <el-col :span="6">
-          <el-card class="stat-card">
-            <div class="stat-content">
-              <h3>未处理反馈</h3>
-              <p class="stat-number">{{ stats.pendingFeedbacks || 0 }}</p>
-              <div class="stat-trend">
-                <span>待处理</span>
-                <span class="trend-down">{{ stats.pendingRate || 0 }}%</span>
-              </div>
+          </div>
+        </el-card>
+      </el-col>
+      <el-col :span="6">
+        <el-card shadow="hover">
+          <div class="stat-item">
+            <el-icon class="stat-icon"><Bell /></el-icon>
+            <div class="stat-info">
+              <span class="stat-label">未处理反馈</span>
+              <span class="stat-value">{{ stats.pendingFeedbacks }}</span>
             </div>
-          </el-card>
-        </el-col>
-      </el-row>
-    </div>
+          </div>
+        </el-card>
+      </el-col>
+    </el-row>
 
-    <!-- 管理功能区 -->
-    <div class="management-section">
-      <el-row :gutter="20">
-        <el-col :span="8">
-          <el-card class="management-card" shadow="hover" @click="router.push('/admin/users')">
-            <div class="card-content">
-              <el-icon class="management-icon"><User /></el-icon>
-              <h3>用户管理</h3>
-              <p>管理用户账号、权限和会员状态</p>
-              <ul class="feature-list">
-                <li>用户信息管理</li>
-                <li>权限设置</li>
-                <li>会员管理</li>
-              </ul>
-            </div>
-          </el-card>
-        </el-col>
-        <el-col :span="8">
-          <el-card class="management-card" shadow="hover" @click="router.push('/admin/chat')">
-            <div class="card-content">
-              <el-icon class="management-icon"><ChatLineRound /></el-icon>
-              <h3>对话管理</h3>
-              <p>查看和管理所有用户的对话记录，监控对话质量</p>
-              <ul class="feature-list">
-                <li>查看对话历史</li>
-                <li>审核对话内容</li>
-                <li>管理敏感词</li>
-              </ul>
-            </div>
-          </el-card>
-        </el-col>
-        <el-col :span="8">
-          <el-card class="management-card" shadow="hover" @click="router.push('/admin/notifications')">
-            <div class="card-content">
-              <el-icon class="management-icon"><Bell /></el-icon>
-              <h3>通知管理</h3>
-              <p>发布和管理系统通知，处理用户反馈</p>
-              <ul class="feature-list">
-                <li>发布系统通知</li>
-                <li>处理用户反馈</li>
-                <li>通知历史记录</li>
-              </ul>
-            </div>
-          </el-card>
-        </el-col>
-      </el-row>
-    </div>
+    <el-row :gutter="20" class="management-section">
+      <el-col :span="8">
+        <el-card shadow="hover" @click="router.push('/admin/chats')" class="management-card">
+          <div class="card-content">
+            <el-icon class="management-icon"><ChatDotRound /></el-icon>
+            <h2>对话管理</h2>
+            <p>查看和管理所有用户的对话记录，监控对话质量</p>
+            <ul class="feature-list">
+              <li>查看对话历史</li>
+              <li>审核对话内容</li>
+              <li>管理敏感词</li>
+            </ul>
+          </div>
+        </el-card>
+      </el-col>
 
-    <!-- 快捷操作 -->
-    <div class="quick-actions">
-      <el-button type="primary" @click="router.push('/admin/users/add')">添加用户</el-button>
-      <el-button type="success" @click="router.push('/admin/notifications/new')">发布通知</el-button>
-      <el-button type="warning" @click="handleSystemSettings">系统设置</el-button>
-    </div>
+      <el-col :span="8">
+        <el-card shadow="hover" @click="router.push('/admin/users')" class="management-card">
+          <div class="card-content">
+            <el-icon class="management-icon"><User /></el-icon>
+            <h2>用户管理</h2>
+            <p>管理用户账号、权限和会员状态</p>
+            <ul class="feature-list">
+              <li>用户信息管理</li>
+              <li>权限设置</li>
+              <li>会员管理</li>
+            </ul>
+          </div>
+        </el-card>
+      </el-col>
+
+      <el-col :span="8">
+        <el-card shadow="hover" @click="router.push('/admin/notifications')" class="management-card">
+          <div class="card-content">
+            <el-icon class="management-icon"><Bell /></el-icon>
+            <h2>通知管理</h2>
+            <p>发布和管理系统通知，处理用户反馈</p>
+            <ul class="feature-list">
+              <li>发布系统通知</li>
+              <li>处理用户反馈</li>
+              <li>通知历史记录</li>
+            </ul>
+          </div>
+        </el-card>
+      </el-col>
+    </el-row>
+
+    <el-row :gutter="20" class="quick-actions">
+      <el-col :span="24">
+        <el-card>
+          <template #header>
+            <div class="card-header">
+              <h2>快捷操作</h2>
+            </div>
+          </template>
+          <div class="quick-actions-content">
+            <el-button type="primary" @click="router.push('/admin/notifications/new')">
+              <el-icon><Plus /></el-icon>
+              发布通知
+            </el-button>
+            <el-button type="success" @click="router.push('/admin/users/new')">
+              <el-icon><Plus /></el-icon>
+              添加用户
+            </el-button>
+            <el-button type="warning" @click="router.push('/admin/feedbacks')">
+              <el-icon><Warning /></el-icon>
+              处理反馈
+            </el-button>
+            <el-button type="info" @click="router.push('/admin/settings')">
+              <el-icon><Setting /></el-icon>
+              系统设置
+            </el-button>
+          </div>
+        </el-card>
+      </el-col>
+    </el-row>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { useUserStore } from '@/stores/user'
-import { User, ChatLineRound, Bell } from '@element-plus/icons-vue'
+import { useAuthStore } from '../../stores/auth'
+import {
+  User,
+  ChatDotRound,
+  Star,
+  Bell,
+  Plus,
+  Warning,
+  Setting
+} from '@element-plus/icons-vue'
 
 const router = useRouter()
-const userStore = useUserStore()
+const authStore = useAuthStore()
 
-// 统计数据
 const stats = ref({
   totalUsers: 0,
-  newUsers: 0,
   todayChats: 0,
-  chatIncrease: 0,
   vipUsers: 0,
-  vipRate: 0,
-  pendingFeedbacks: 0,
-  pendingRate: 0
+  pendingFeedbacks: 0
 })
 
-// 获取统计数据
 onMounted(async () => {
-  // TODO: 从API获取实际统计数据
+  try {
+    const response = await fetch('/api/admin/stats', {
+      headers: {
+        'Authorization': `Bearer ${authStore.token}`
+      }
+    })
+    if (response.ok) {
+      const data = await response.json()
+      stats.value = data
+    }
+  } catch (error) {
+    console.error('Failed to fetch admin stats:', error)
+  }
 })
-
-// 系统设置
-const handleSystemSettings = () => {
-  // TODO: 实现系统设置功能
-}
 </script>
 
 <style scoped>
 .admin-home {
   padding: 20px;
+  max-width: 1400px;
+  margin: 0 auto;
 }
 
 .welcome-section {
-  text-align: center;
-  margin-bottom: 40px;
+  margin-bottom: 24px;
 }
 
-.welcome-section h1 {
-  font-size: 24px;
-  color: #303133;
-  margin-bottom: 10px;
-}
-
-.welcome-section p {
-  color: #606266;
-  font-size: 16px;
-}
-
-.statistics {
-  margin-bottom: 40px;
-}
-
-.stat-card {
-  height: 140px;
-}
-
-.stat-content {
-  text-align: center;
-}
-
-.stat-content h3 {
-  font-size: 16px;
-  color: #606266;
-  margin-bottom: 15px;
-}
-
-.stat-number {
-  font-size: 28px;
-  color: #303133;
-  font-weight: bold;
-  margin-bottom: 10px;
-}
-
-.stat-trend {
-  font-size: 14px;
-  color: #909399;
-}
-
-.trend-up {
-  color: #67C23A;
-  margin-left: 5px;
-}
-
-.trend-down {
-  color: #F56C6C;
-  margin-left: 5px;
-}
-
-.management-section {
-  margin-bottom: 40px;
-}
-
-.management-card {
-  height: 280px;
-  cursor: pointer;
-  transition: all 0.3s;
-}
-
-.management-card:hover {
-  transform: translateY(-5px);
-}
-
-.card-content {
+.welcome-content {
   text-align: center;
   padding: 20px;
 }
 
-.management-icon {
-  font-size: 40px;
-  color: #409EFF;
-  margin-bottom: 15px;
+.welcome-content h1 {
+  margin: 0;
+  font-size: 24px;
+  color: var(--el-text-color-primary);
 }
 
-.card-content h3 {
-  font-size: 18px;
-  color: #303133;
-  margin-bottom: 10px;
+.welcome-content p {
+  margin: 8px 0 0;
+  color: var(--el-text-color-secondary);
+}
+
+.stats-section {
+  margin-bottom: 24px;
+}
+
+.stat-item {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+}
+
+.stat-icon {
+  font-size: 32px;
+  color: var(--el-color-primary);
+}
+
+.stat-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.stat-label {
+  font-size: 14px;
+  color: var(--el-text-color-secondary);
+}
+
+.stat-value {
+  font-size: 24px;
+  font-weight: bold;
+  color: var(--el-text-color-primary);
+}
+
+.management-section {
+  margin-bottom: 24px;
+}
+
+.management-card {
+  height: 100%;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.management-card:hover {
+  transform: translateY(-5px);
+  box-shadow: var(--el-box-shadow-light);
+}
+
+.card-content {
+  padding: 20px;
+  text-align: center;
+}
+
+.management-icon {
+  font-size: 48px;
+  color: var(--el-color-primary);
+  margin-bottom: 16px;
+}
+
+.card-content h2 {
+  margin: 0 0 12px;
+  font-size: 20px;
+  color: var(--el-text-color-primary);
 }
 
 .card-content p {
-  color: #606266;
+  margin: 0 0 16px;
+  color: var(--el-text-color-secondary);
   font-size: 14px;
-  margin-bottom: 20px;
 }
 
 .feature-list {
-  text-align: left;
   list-style: none;
   padding: 0;
   margin: 0;
+  text-align: left;
 }
 
 .feature-list li {
-  color: #606266;
+  margin: 8px 0;
+  color: var(--el-text-color-regular);
   font-size: 14px;
-  margin-bottom: 8px;
-  padding-left: 20px;
-  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .feature-list li::before {
   content: "•";
-  color: #409EFF;
-  position: absolute;
-  left: 0;
+  color: var(--el-color-primary);
 }
 
 .quick-actions {
-  text-align: center;
+  margin-bottom: 24px;
 }
 
-.quick-actions .el-button {
-  margin: 0 10px;
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
-</style> 
+
+.card-header h2 {
+  margin: 0;
+  font-size: 18px;
+  color: var(--el-text-color-primary);
+}
+
+.quick-actions-content {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.quick-actions-content .el-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+@media (max-width: 768px) {
+  .admin-home {
+    padding: 10px;
+  }
+
+  .stats-section .el-col,
+  .management-section .el-col {
+    margin-bottom: 16px;
+  }
+
+  .quick-actions-content {
+    flex-direction: column;
+  }
+
+  .quick-actions-content .el-button {
+    width: 100%;
+  }
+}
+</style>

@@ -185,7 +185,7 @@ export default {
 <script setup lang="ts">
 import { ref } from 'vue'
 import { storeToRefs } from 'pinia'
-import { useSettingsStore } from '../store/settings'
+import { useSettingsStore } from '../stores/settings'
 import { 
   Brush, Sunny, Moon, Monitor, ChatDotRound, Operation
 } from '@element-plus/icons-vue'
