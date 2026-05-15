@@ -1,19 +1,19 @@
 package com.kobeai.hub.dto.response;
 
-import io.swagger.annotations.ApiModel;
-import io.swagger.annotations.ApiModelProperty;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
 @Data
-@ApiModel("通用响应")
+@Schema(description = "通用响应")
 public class ApiResponse<T> {
-    @ApiModelProperty("响应码")
+    @Schema(description = "响应码")
     private int code;
 
-    @ApiModelProperty("响应消息")
+    @Schema(description = "响应消息")
     private String message;
 
-    @ApiModelProperty("响应数据")
+    @Schema(description = "响应数据")
     private T data;
 
     public static <T> ApiResponse<T> success(T data) {

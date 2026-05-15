@@ -3,8 +3,8 @@ package com.kobeai.hub.controller;
 import com.kobeai.hub.config.MinioConfig;
 import io.minio.MinioClient;
 import io.minio.PutObjectArgs;
-import io.swagger.annotations.Api;
-import io.swagger.annotations.ApiOperation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.Operation;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -28,7 +28,7 @@ import static com.kobeai.hub.constant.FileConstant.COS_HOST;
 @RestController
 @RequestMapping("/file")
 @Slf4j
-@Api(tags = "文件上传接口")
+@Tag(name = "文件上传接口")
 public class FileController {
 
     private MinioClient minioClient;
@@ -43,7 +43,7 @@ public class FileController {
      * @return 完整url
      */
     @PostMapping("/upload")
-    @ApiOperation(value = "上传图片")
+    @Operation(summary = "上传图片")
     public String upload(@RequestParam("data") MultipartFile data) throws Exception {
         // 检查文件是否为空
         if (data.isEmpty()) {

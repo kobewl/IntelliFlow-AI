@@ -28,32 +28,6 @@ public class WebConfig implements WebMvcConfigurer {
     private String uploadDir;
 
 
-    @Bean
-    public CorsFilter corsFilter() {
-        CorsConfiguration config = new CorsConfiguration();
-        config.setAllowCredentials(true);
-        config.addAllowedOrigin("http://localhost:5173");
-        config.addAllowedOrigin("http://localhost:5174");
-        config.addAllowedHeader("*");
-        config.addAllowedMethod("*");
-        config.addExposedHeader("Authorization");
-        config.addExposedHeader("Content-Type");
-        config.setMaxAge(3600L);
-
-        // 添加对 SSE 的支持
-        config.addAllowedHeader("Accept");
-        config.addAllowedHeader("Cache-Control");
-        config.addAllowedHeader("Connection");
-        config.addExposedHeader("Accept");
-        config.addExposedHeader("Cache-Control");
-        config.addExposedHeader("Connection");
-
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", config);
-
-        return new CorsFilter(source);
-    }
-
     @Override
     public void configureAsyncSupport(AsyncSupportConfigurer configurer) {
         // 设置异步请求超时时间为30分钟
