@@ -6,9 +6,9 @@ import io.jsonwebtoken.security.Keys;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
-import javax.annotation.PostConstruct;
+import jakarta.annotation.PostConstruct;
 import java.nio.charset.StandardCharsets;
-import java.security.Key;
+import javax.crypto.SecretKey;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
@@ -23,7 +23,7 @@ public class JwtUtil {
     @Value("${jwt.expiration}")
     private Long expiration;
 
-    private Key key;
+    private SecretKey key;
 
     @PostConstruct
     public void init() {
@@ -51,11 +51,11 @@ public class JwtUtil {
         Date expiryDate = new Date(now.getTime() + expiration);
 
         String token = Jwts.builder()
-                .setClaims(claims)
-                .setSubject(user.getUsername())
-                .setIssuedAt(now)
-                .setExpiration(expiryDate)
-                .signWith(key, SignatureAlgorithm.HS256)
+                .claims(claims)
+                .subject(user.getUsername())
+                .issuedAt(now)
+                .expiration(expiryDate)
+                .signWith(key, Jwts.SIG.HS256)
                 .compact();
 
         return "Bearer " + token;
@@ -77,11 +77,11 @@ public class JwtUtil {
                 throw new IllegalArgumentException("Token value cannot be empty");
             }
 
-            Claims claims = Jwts.parserBuilder()
-                    .setSigningKey(key)
+            Claims claims = Jwts.parser()
+                    .verifyWith(key)
                     .build()
-                    .parseClaimsJws(tokenValue)
-                    .getBody();
+                    .parseSignedClaims(tokenValue)
+                    .getPayload();
 
             String username = claims.getSubject();
             if (username == null || username.trim().isEmpty()) {

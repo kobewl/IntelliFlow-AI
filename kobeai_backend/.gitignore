@@ -39,8 +39,8 @@ logs/
 .env
 .env.*
 !.env.example
+application.yml
 application-*.yml
-!application.yml
 !application-example.yml
 *.properties
 !application.properties
@@ -121,8 +121,8 @@ yarn-error.log*
 .env
 .env.*
 !.env.example
+application.yml
 application-*.yml
-!application.yml
 !application-example.yml
 
 ### Logs ###

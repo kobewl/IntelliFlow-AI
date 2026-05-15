@@ -2,8 +2,8 @@ package com.kobeai.hub.controller;
 
 import com.kobeai.hub.dto.response.ApiResponse;
 import com.kobeai.hub.service.UserService;
-import io.swagger.annotations.Api;
-import io.swagger.annotations.ApiOperation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.Operation;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
@@ -12,13 +12,13 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/user/email")
 @RequiredArgsConstructor
-@Api(tags = "邮箱验证码接口")
+@Tag(name = "邮箱验证码接口")
 public class EmailController {
 
     private final UserService userService;
 
     @PostMapping("/send")
-    @ApiOperation("发送邮箱验证码")
+    @Operation(summary = "发送邮箱验证码")
     public ApiResponse<?> sendEmailCode(@RequestBody EmailRequest request) {
         log.info("Sending email verification code to: {}", request.getEmail());
         try {
@@ -30,7 +30,7 @@ public class EmailController {
     }
 
     @PostMapping("/verify")
-    @ApiOperation("验证邮箱验证码")
+    @Operation(summary = "验证邮箱验证码")
     public ApiResponse<?> verifyEmailCode(@RequestBody EmailVerifyRequest request) {
         log.info("Verifying email code for: {}", request.getEmail());
         try {

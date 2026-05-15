@@ -27,16 +27,16 @@ import java.util.Map;
 @EnableCaching
 public class RedisConfig {
 
-    @Value("${spring.redis.host}")
+    @Value("${spring.data.redis.host}")
     private String redisHost;
 
-    @Value("${spring.redis.port}")
+    @Value("${spring.data.redis.port}")
     private int redisPort;
 
-    @Value("${spring.redis.database:0}")
+    @Value("${spring.data.redis.database:0}")
     private int database;
 
-    @Value("${spring.redis.timeout:5000}")
+    @Value("${spring.data.redis.timeout:5000}")
     private int timeout;
 
     @Bean
