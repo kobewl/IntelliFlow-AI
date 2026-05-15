@@ -23,7 +23,7 @@ spring:
 
   # JPA配置
   jpa:
-    database-platform: org.hibernate.dialect.MySQL8Dialect
+    database-platform: org.hibernate.dialect.MySQLDialect
     show-sql: true
     hibernate:
       ddl-auto: update
@@ -33,17 +33,18 @@ spring:
     defer-datasource-initialization: true
 
   # Redis配置
-  redis:
-    host: localhost
-    port: 6379
-    database: 0
-    timeout: 5000
-    lettuce:
-      pool:
-        max-active: 8
-        max-wait: -1
-        max-idle: 8
-        min-idle: 0
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      database: 0
+      timeout: 5000
+      lettuce:
+        pool:
+          max-active: 8
+          max-wait: -1
+          max-idle: 8
+          min-idle: 0
 
   # 文件上传配置
   servlet:
@@ -159,15 +160,6 @@ devtools:
     enabled: true # 开启livereload
     port: 35729 # livereload端口
 
-websocket:
-  enabled: true
-
-mvc:
-  pathmatch:
-    matching-strategy: ant_path_matcher
-
-main:
-  allow-circular-references: true
 
 # MinIO Configuration
 minio:
@@ -187,10 +179,6 @@ knife4j:
     enable: false
   production: false
 
-springfox:
-  documentation:
-    swagger-ui:
-      enabled: true
 
 app:
   upload:

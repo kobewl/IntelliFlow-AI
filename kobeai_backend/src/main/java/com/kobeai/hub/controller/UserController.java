@@ -7,8 +7,8 @@ import com.kobeai.hub.dto.response.ApiResponse;
 import com.kobeai.hub.model.User;
 import com.kobeai.hub.service.FileService;
 import com.kobeai.hub.service.UserService;
-import io.swagger.annotations.Api;
-import io.swagger.annotations.ApiOperation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.Operation;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.Resource;
@@ -26,7 +26,7 @@ import java.nio.file.StandardCopyOption;
 import java.util.UUID;
 
 @Slf4j
-@Api(tags = "用户管理")
+@Tag(name = "用户管理")
 @RestController
 @RequestMapping("/auth")
 @RequiredArgsConstructor
@@ -36,19 +36,19 @@ public class UserController {
     private final FileService fileService;
 
     @PostMapping("/register")
-    @ApiOperation("用户注册")
+    @Operation(summary = "用户注册")
     public ApiResponse<?> register(@RequestBody RegisterRequest request) {
         return userService.register(request);
     }
 
     @PostMapping("/login")
-    @ApiOperation("用户登录")
+    @Operation(summary = "用户登录")
     public ApiResponse<?> login(@RequestBody LoginRequest request) {
         return userService.login(request.getUsername(), request.getPassword());
     }
 
     @GetMapping("/profile")
-    @ApiOperation("获取用户信息")
+    @Operation(summary = "获取用户信息")
     public ApiResponse<?> getProfile(@RequestHeader("Authorization") String authHeader) {
         try {
             String token = extractToken(authHeader);
@@ -59,7 +59,7 @@ public class UserController {
     }
 
     @PostMapping("/logout")
-    @ApiOperation("用户登出")
+    @Operation(summary = "用户登出")
     public ApiResponse<?> logout(@RequestHeader("Authorization") String authHeader) {
         try {
             String token = extractToken(authHeader);
@@ -71,7 +71,7 @@ public class UserController {
     }
 
     @PostMapping("/avatar")
-    @ApiOperation("上传用户头像")
+    @Operation(summary = "上传用户头像")
     public ApiResponse<?> uploadAvatar(@RequestParam("file") MultipartFile file,
             @RequestParam("userId") Long userId) {
         try {
@@ -102,7 +102,7 @@ public class UserController {
     }
 
     @PutMapping("/profile")
-    @ApiOperation("更新用户信息")
+    @Operation(summary = "更新用户信息")
     public ApiResponse<?> updateProfile(@RequestBody User user,
             @RequestHeader("Authorization") String authHeader) {
         try {
@@ -116,7 +116,7 @@ public class UserController {
     }
 
     @PutMapping("/password")
-    @ApiOperation("修改密码")
+    @Operation(summary = "修改密码")
     public ApiResponse<?> changePassword(@RequestBody ChangePasswordRequest request,
             @RequestHeader("Authorization") String authHeader) {
         try {

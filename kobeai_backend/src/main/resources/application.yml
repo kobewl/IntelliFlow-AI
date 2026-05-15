@@ -27,7 +27,7 @@ spring:
       ddl-auto: update
     properties:
       hibernate:
-        dialect: org.hibernate.dialect.MySQL8Dialect
+        dialect: org.hibernate.dialect.MySQLDialect
         format_sql: true
     defer-datasource-initialization: true
 
@@ -35,17 +35,18 @@ spring:
     init:
       mode: never
 
-  redis:
-    host: 39.98.107.158
-    port: 6379
-    database: 0
-    timeout: 5000
-    lettuce:
-      pool:
-        max-active: 8
-        max-wait: -1
-        max-idle: 8
-        min-idle: 0
+  data:
+    redis:
+      host: 39.98.107.158
+      port: 6379
+      database: 0
+      timeout: 5000
+      lettuce:
+        pool:
+          max-active: 8
+          max-wait: -1
+          max-idle: 8
+          min-idle: 0
 
   # RabbitMQ配置
   rabbitmq:
@@ -78,16 +79,6 @@ spring:
       enabled: true # 开启livereload
       port: 35729 # livereload端口
 
-  websocket:
-    enabled: true
-
-  mvc:
-    pathmatch:
-      matching-strategy: ant_path_matcher
-
-  main:
-    allow-circular-references: true
-
 server:
   port: 8080
   servlet:
@@ -116,10 +107,6 @@ knife4j:
     enable: false
   production: false
 
-springfox:
-  documentation:
-    swagger-ui:
-      enabled: true
 
 cors:
   allowed-origins: http://localhost:5173
