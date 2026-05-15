@@ -6,7 +6,6 @@ import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import io.swagger.annotations.ApiParam;
 import lombok.RequiredArgsConstructor;
-import lombok.var;
 import org.springframework.web.bind.annotation.*;
 import com.kobeai.hub.model.AIPlatform;
 import java.util.List;
