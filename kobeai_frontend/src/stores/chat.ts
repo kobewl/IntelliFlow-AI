@@ -8,23 +8,21 @@ import { useAuthStore } from './auth'
 import { authApi } from '../api/auth'
 
 export const useChatStore = defineStore('chat', () => {
-  // 从localStorage恢复状态
   const conversations = ref<Conversation[]>([])
   const currentConversationId = ref<number | null>(null)
   const loading = ref(false)
   const loadingMore = ref(false)
   const error = ref<string | null>(null)
 
-  // 初始化时从localStorage加载状态
   function initializeFromStorage() {
     try {
       const storedConversations = localStorage.getItem('conversations')
       const storedCurrentId = localStorage.getItem('currentConversationId')
-      
+
       if (storedConversations) {
         conversations.value = JSON.parse(storedConversations)
       }
-      
+
       if (storedCurrentId) {
         currentConversationId.value = parseInt(storedCurrentId)
       }
@@ -33,7 +31,6 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
-  // 保存状态到localStorage
   function saveToStorage() {
     try {
       localStorage.setItem('conversations', JSON.stringify(conversations.value))
@@ -47,7 +44,6 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
-  // 监听状态变化并保存
   watch([conversations, currentConversationId], () => {
     saveToStorage()
   }, { deep: true })
@@ -57,7 +53,6 @@ export const useChatStore = defineStore('chat', () => {
     return conversations.value.find(c => c.id === currentConversationId.value) || null
   })
 
-  // 加载会话列表
   async function loadConversations() {
     try {
       loading.value = true
@@ -65,13 +60,11 @@ export const useChatStore = defineStore('chat', () => {
       const response = await chatApi.getConversations()
       if (response.code === 200) {
         conversations.value = response.data
-        
-        // 如果有会话但没有选中的会话，选择第一个
+
         if (conversations.value.length > 0 && !currentConversationId.value) {
           currentConversationId.value = conversations.value[0].id
         }
-        
-        // 保存到localStorage
+
         saveToStorage()
       } else {
         throw new Error(response.message || '加载会话列表失败')
@@ -85,12 +78,11 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
-  // 创建新会话
   async function createConversation() {
     try {
       loading.value = true
       error.value = null
-      
+
       const response = await chatApi.createConversation()
       if (response.code === 200 && response.data) {
         const conversation: Conversation = {
@@ -111,7 +103,6 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
-  // 切换会话
   async function switchConversation(id: number) {
     try {
       loading.value = true
@@ -119,13 +110,12 @@ export const useChatStore = defineStore('chat', () => {
       const response = await chatApi.getConversationById(id)
       if (response.code === 200) {
         const conversation = response.data
-        
-        // 更新会话列表中的会话
+
         const index = conversations.value.findIndex(c => c.id === id)
         if (index !== -1) {
           conversations.value[index] = conversation
         }
-        
+
         currentConversationId.value = id
       } else {
         throw new Error(response.message || '切换会话失败')
@@ -139,7 +129,6 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
-  // 发送消息
   async function sendMessage(content: string) {
     if (!content.trim()) {
       throw new Error('消息内容不能为空')
@@ -149,7 +138,6 @@ export const useChatStore = defineStore('chat', () => {
       loading.value = true
       error.value = null
 
-      // 如果没有当前会话，先创建一个新会话
       if (!currentConversationId.value) {
         const conversation = await createConversation()
         if (!conversation) {
@@ -161,21 +149,19 @@ export const useChatStore = defineStore('chat', () => {
         throw new Error('没有选中的会话')
       }
 
-      // 先添加用户消息到界面
       const userMessage: ChatMessage = {
         id: Date.now(),
         content,
         role: MessageRole.USER,
         createdAt: new Date().toISOString()
       }
-      
+
       if (!currentConversation.value.messages) {
         currentConversation.value.messages = []
       }
       currentConversation.value.messages.push(userMessage)
 
       try {
-        // 创建AI消息占位
         const aiMessage: ChatMessage = {
           id: Date.now() + 1,
           content: '',
@@ -184,11 +170,9 @@ export const useChatStore = defineStore('chat', () => {
         }
         currentConversation.value.messages.push(aiMessage)
 
-        // 发送消息到服务器并处理流式响应
         const response = await chatApi.sendMessage(
-          currentConversationId.value, 
+          currentConversationId.value,
           content,
-          // 实时更新消息内容的回调函数
           (newContent: string) => {
             if (currentConversation.value) {
               const lastMessage = currentConversation.value.messages[currentConversation.value.messages.length - 1]
@@ -201,7 +185,6 @@ export const useChatStore = defineStore('chat', () => {
         )
 
         if (response.code === 200 && response.data) {
-          // 更新最后一条消息的内容和ID
           const lastMessage = currentConversation.value.messages[currentConversation.value.messages.length - 1]
           if (lastMessage && lastMessage.role === MessageRole.ASSISTANT) {
             lastMessage.id = response.data.id
@@ -213,23 +196,18 @@ export const useChatStore = defineStore('chat', () => {
 
         throw new Error(response.message || '发送消息失败')
       } catch (err: any) {
-        // 发送失败时移除AI消息，保留用户消息
         if (currentConversation.value?.messages) {
           currentConversation.value.messages = currentConversation.value.messages.filter(
             msg => msg.role !== MessageRole.ASSISTANT
           )
         }
 
-        // 处理认证错误
         if (err.message?.includes('未登录') || err.message?.includes('认证已过期')) {
           const authStore = useAuthStore()
-          // 尝试刷新token
           try {
             await authApi.refreshToken()
-            // 刷新成功，重试发送消息
             return await sendMessage(content)
           } catch (refreshError) {
-            // 刷新失败，清除认证状态并跳转到登录页
             await authStore.logout()
             ElMessage.error('登录已过期，请重新登录')
             throw new Error('认证已过期，请重新登录')
@@ -245,7 +223,6 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
-  // 加载更多消息
   async function loadMoreMessages() {
     if (!currentConversation.value || loadingMore.value || !currentConversation.value.hasMore) {
       return
@@ -261,11 +238,10 @@ export const useChatStore = defineStore('chat', () => {
           limit: 20
         }
       )
-      
+
       if (response.code === 200) {
         const { messages, hasMore, nextCursor } = response.data
-        
-        // 更新会话消息
+
         if (currentConversation.value) {
           currentConversation.value.messages.push(...messages)
           currentConversation.value.hasMore = hasMore
@@ -283,14 +259,12 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
-  // 重命名会话
   async function renameConversation(id: number, title: string) {
     try {
       loading.value = true
       error.value = null
       const response = await chatApi.renameConversation(id, title)
       if (response.code === 200) {
-        // 更新会话列表中的标题
         const conversation = conversations.value.find(c => c.id === id)
         if (conversation) {
           conversation.title = title
@@ -307,20 +281,17 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
-  // 删除会话
   async function deleteConversation(id: number) {
     try {
       loading.value = true
       error.value = null
       const response = await chatApi.deleteConversation(id)
       if (response.code === 200) {
-        // 从会话列表中移除
         const index = conversations.value.findIndex(c => c.id === id)
         if (index !== -1) {
           conversations.value.splice(index, 1)
         }
 
-        // 如果删除的是当前会话，切换到第一个会话
         if (currentConversationId.value === id) {
           currentConversationId.value = conversations.value[0]?.id || null
         }
@@ -336,7 +307,6 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
-  // 清除store状态
   function clearStore() {
     conversations.value = []
     currentConversationId.value = null
@@ -344,7 +314,6 @@ export const useChatStore = defineStore('chat', () => {
     localStorage.removeItem('currentConversationId')
   }
 
-  // 初始化store
   onMounted(() => {
     initializeFromStorage()
   })
@@ -365,4 +334,4 @@ export const useChatStore = defineStore('chat', () => {
     deleteConversation,
     clearStore
   }
-}) 
+})

@@ -3,7 +3,7 @@ import { onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import zhCn from 'element-plus/dist/locale/zh-cn.mjs'
-import { useAuthStore } from './store/auth'
+import { useAuthStore } from './stores/auth'
 
 const router = useRouter()
 const authStore = useAuthStore()

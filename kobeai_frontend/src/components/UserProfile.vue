@@ -83,7 +83,7 @@ export default {
 import { ref, computed } from 'vue'
 import { User, Setting, SwitchButton, UserFilled } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { useAuthStore } from '../store/auth'
+import { useAuthStore } from '../stores/auth'
 import { storeToRefs } from 'pinia'
 import UserInfo from './UserInfo.vue'
 import Settings from './Settings.vue'
