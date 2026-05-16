@@ -7,24 +7,11 @@
 <script setup lang="ts">
 import MarkdownRender from 'markstream-vue'
 import 'markstream-vue/index.css'
+import { preprocessMarkdown } from '../utils/markdown-preprocessor'
 
 defineProps<{
   content: string
 }>()
-
-/**
- * 预处理 Markdown：修复 LLM 常见的格式问题
- * - 确保标题前有换行（处理 "text—##" 等情况）
- * - 确保引用 > 前有换行
- */
-function preprocessMarkdown(content: string): string {
-  let text = content
-  // 标题前缺少换行
-  text = text.replace(/([^\n])(#{1,6}\s)/g, '$1\n\n$2')
-  // 引用标记前缺少换行
-  text = text.replace(/([^\n>])(>\s)/g, '$1\n\n$2')
-  return text
-}
 </script>
 
 <style scoped>
