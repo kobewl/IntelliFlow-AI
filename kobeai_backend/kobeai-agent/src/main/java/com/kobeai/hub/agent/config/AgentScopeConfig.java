@@ -5,6 +5,7 @@ import com.kobeai.hub.agent.service.RagService;
 import com.kobeai.hub.agent.tool.DateTimeTool;
 import com.kobeai.hub.agent.tool.KnowledgeTool;
 import com.kobeai.hub.agent.tool.MemoryTool;
+import com.kobeai.hub.agent.tool.SandboxTool;
 import com.kobeai.hub.agent.tool.SystemTool;
 import io.agentscope.core.model.OpenAIChatModel;
 import io.agentscope.core.tool.Toolkit;
@@ -75,7 +76,8 @@ public class AgentScopeConfig {
         toolkit.registerTool(new SystemTool());
         toolkit.registerTool(new KnowledgeTool(ragService));
         toolkit.registerTool(new MemoryTool(longTermMemory));
-        log.info("AgentScope: 已注册 {} 个自定义工具", 4);
+        toolkit.registerTool(new SandboxTool());
+        log.info("AgentScope: 已注册 {} 个自定义工具", 5);
         return toolkit;
     }
 
@@ -90,7 +92,10 @@ public class AgentScopeConfig {
                 Map.of("name", "list_knowledge_bases", "description", "列出可用知识库"),
                 Map.of("name", "remember_fact", "description", "记住重要的事实或偏好"),
                 Map.of("name", "update_core_memory", "description", "更新核心长期记忆"),
-                Map.of("name", "recall_memory", "description", "查看已存储的长期记忆")
+                Map.of("name", "recall_memory", "description", "查看已存储的长期记忆"),
+                Map.of("name", "run_python", "description", "在沙盒中执行 Python 代码"),
+                Map.of("name", "run_javascript", "description", "在沙盒中执行 JavaScript 代码（Node.js）"),
+                Map.of("name", "run_shell", "description", "在沙盒中执行 Shell 命令（危险命令已过滤）")
         );
     }
 
