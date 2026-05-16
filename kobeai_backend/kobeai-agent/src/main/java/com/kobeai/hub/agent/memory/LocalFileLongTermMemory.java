@@ -89,7 +89,7 @@ public class LocalFileLongTermMemory implements LongTermMemory {
     // ==================== 公开方法（供工具和管理接口调用） ====================
 
     /**
-     * 手动存储一条事实到 facts 目录
+     * 手动存储一条事实到 facts 目录，同时同步到核心记忆 MEMORY.md。
      */
     public void saveFact(String title, String content, String... tags) {
         try {
@@ -104,6 +104,17 @@ public class LocalFileLongTermMemory implements LongTermMemory {
             Files.writeString(factFile, markdown, StandardCharsets.UTF_8,
                     StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
             log.info("事实已保存: {}", filename);
+
+            // 同时写入核心记忆 MEMORY.md，避免信息丢失
+            String coreContent = "### " + title + "\n\n" + content + "\n";
+            // 只在事实尚未记录时才追加，避免重复
+            String existing = "";
+            if (Files.exists(coreMemoryFile)) {
+                existing = Files.readString(coreMemoryFile, StandardCharsets.UTF_8);
+            }
+            if (!existing.contains(title)) {
+                updateCoreMemory("关键事实", coreContent);
+            }
         } catch (IOException e) {
             log.error("保存事实失败: {}", e.getMessage());
         }
