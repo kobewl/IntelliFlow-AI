@@ -195,6 +195,38 @@ export function streamAgentChat(
   }
 }
 
+// ---- Agent API ----
+
+export interface ToolInfo {
+  name: string
+  description: string
+}
+
+export interface AgentSessionsInfo {
+  activeSessions: number
+  currentSession?: {
+    sessionId: string
+    messageCount: number
+    createdAt: string
+  }
+}
+
+export const agentApi = {
+  async getTools(): Promise<{ code: number; data: ToolInfo[]; total: number }> {
+    return apiInstance.get('/agent/tools')
+  },
+
+  async getSessions(detail?: boolean, sessionId?: string): Promise<{ code: number } & AgentSessionsInfo> {
+    const params: Record<string, string> = {}
+    if (detail) params.detail = 'true'
+    return apiInstance.get('/agent/sessions', { params, headers: sessionId ? { 'X-Session-Id': sessionId } : {} })
+  },
+
+  async closeSession(sessionId: string): Promise<void> {
+    return apiInstance.delete(`/agent/session/${sessionId}`)
+  }
+}
+
 // ---- REST API ----
 
 export const chatApi = {

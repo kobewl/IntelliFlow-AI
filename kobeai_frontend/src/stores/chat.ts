@@ -12,8 +12,8 @@ export interface AgentMessage {
   role: 'user' | 'agent'
   content: string
   createdAt: string
-  // Agent思考过程
-  reasoning: string[]
+  // Agent思考过程 (流式拼接的纯文本)
+  reasoning: string
   toolCalls: ToolCall[]
   isStreaming: boolean
   isThinking: boolean
@@ -26,7 +26,7 @@ function msgToAgent(msg: ChatMessage): AgentMessage {
     role: msg.role === 'USER' ? 'user' : 'agent',
     content: msg.content,
     createdAt: msg.createdAt,
-    reasoning: [],
+    reasoning: '',
     toolCalls: [],
     isStreaming: false,
     isThinking: false
@@ -168,7 +168,7 @@ export const useChatStore = defineStore('chat', () => {
       role: 'user',
       content,
       createdAt: new Date().toISOString(),
-      reasoning: [],
+      reasoning: '',
       toolCalls: [],
       isStreaming: false,
       isThinking: false
@@ -181,7 +181,7 @@ export const useChatStore = defineStore('chat', () => {
       role: 'agent',
       content: '',
       createdAt: new Date().toISOString(),
-      reasoning: [],
+      reasoning: '',
       toolCalls: [],
       isStreaming: true,
       isThinking: true
@@ -197,7 +197,7 @@ export const useChatStore = defineStore('chat', () => {
           onReasoning(data) {
             const msg = messages.value.find(m => m.id === agentMsg.id)
             if (msg) {
-              msg.reasoning.push(data)
+              msg.reasoning += data
               msg.isThinking = true
             }
           },

@@ -113,10 +113,8 @@ export default {
   background: transparent;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
   font-size: 14px;
-  line-height: 1.4;
+  line-height: 1.6;
   color: inherit;
-  word-break: break-word;
-  white-space: pre-wrap;
 }
 
 /* 标题样式 */
