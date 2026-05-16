@@ -21,7 +21,7 @@
     "highlight.js": "^11.11.1",
     "markstream-vue": "0.0.14-beta.8",
     "pinia": "^2.3.1",
-    "vue": "^3.4.15",
+    "vue": "~3.4.15",
     "vue-router": "^4.5.0"
   },
   "devDependencies": {
