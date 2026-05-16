@@ -265,25 +265,50 @@
                 <!-- 工作台时间线 -->
                 <AgentWorkbench :steps="msg.steps" />
 
-                <!-- 工具调用 -->
+                <!-- 工具执行中状态指示器 -->
+                <div v-if="hasRunningTool(msg)" class="tool-running-bar">
+                  <span class="running-spinner"></span>
+                  <span class="running-text">正在执行 {{ runningToolName(msg) }}...</span>
+                </div>
+
+                <!-- 工具调用结果卡片 -->
                 <div
                   v-for="(tool, ti) in msg.toolCalls"
                   :key="'tool-' + ti"
                   class="tool-card"
+                  :class="{ 'is-error': tool.status === 'error' }"
                 >
-                  <div class="tool-header">
-                    <el-icon class="tool-icon"><Tools /></el-icon>
+                  <div class="tool-header" @click="toggleToolResult(tool)">
+                    <el-icon class="tool-icon" :class="{ spinning: tool.status === 'running' }">
+                      <Loading v-if="tool.status === 'running'" />
+                      <Tools v-else />
+                    </el-icon>
                     <span class="tool-name">{{ tool.name }}</span>
-                    <span class="tool-badge">工具调用</span>
+                    <span class="tool-badge" :class="tool.status">
+                      {{ toolStatusText(tool) }}
+                    </span>
+                    <el-icon class="tool-expand" :class="{ open: isToolExpanded(tool) }">
+                      <ArrowDown />
+                    </el-icon>
                   </div>
-                  <div class="tool-body">
+                  <div class="tool-body" v-show="isToolExpanded(tool)">
                     <div v-if="tool.input" class="tool-section">
                       <span class="tool-label">输入参数</span>
                       <code class="tool-code">{{ tool.input }}</code>
                     </div>
                     <div v-if="tool.output" class="tool-section">
                       <span class="tool-label">返回结果</span>
-                      <code class="tool-code">{{ tool.output }}</code>
+                      <code class="tool-code" :class="{ 'collapsed': isLongOutput(tool.output) && !expandedOutputs.has(tool.toolCallId || '') }">
+                        {{ tool.output }}
+                      </code>
+                      <span
+                        v-if="isLongOutput(tool.output)"
+                        class="expand-output-btn"
+                        @click="toggleOutputExpand(tool.toolCallId || '')"
+                      >
+                        {{ expandedOutputs.has(tool.toolCallId || '') ? '收起结果' : '展开完整结果' }}
+                        <el-icon><ArrowDown /></el-icon>
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -423,6 +448,8 @@ const renameText = ref('')
 const renameTarget = ref<Conversation | null>(null)
 const toolInfos = ref<ToolInfo[]>([])
 const toolCount = ref(0)
+const expandedToolIds = ref(new Set<string>())
+const expandedOutputs = ref(new Set<string>())
 
 // ---- 计算属性 ----
 
@@ -611,6 +638,49 @@ function handleInputChange() {
 
 function handleModelChange(val: string) {
   ElMessage.success(val === 'auto' ? '已切换为自动选择模型' : `已切换模型: ${val}`)
+}
+
+// ---- 工具状态辅助函数 ----
+
+function hasRunningTool(msg: any): boolean {
+  return msg.steps?.some((s: any) => s.type === 'tool_call' && s.status === 'running')
+}
+
+function runningToolName(msg: any): string {
+  const step = msg.steps?.find((s: any) => s.type === 'tool_call' && s.status === 'running')
+  return step?.name || '工具'
+}
+
+function toolStatusText(tool: any): string {
+  if (tool.status === 'running') return '执行中'
+  if (tool.status === 'error') return '失败'
+  return '完成'
+}
+
+function toggleToolResult(tool: any) {
+  const id = tool.toolCallId || tool.name
+  if (expandedToolIds.value.has(id)) {
+    expandedToolIds.value.delete(id)
+  } else {
+    expandedToolIds.value.add(id)
+  }
+}
+
+function isToolExpanded(tool: any): boolean {
+  const id = tool.toolCallId || tool.name
+  return expandedToolIds.value.has(id)
+}
+
+function isLongOutput(output: string): boolean {
+  return output && output.length > 300
+}
+
+function toggleOutputExpand(toolCallId: string) {
+  if (expandedOutputs.value.has(toolCallId)) {
+    expandedOutputs.value.delete(toolCallId)
+  } else {
+    expandedOutputs.value.add(toolCallId)
+  }
 }
 
 async function handleLoadMore() {
@@ -1254,6 +1324,11 @@ $text-3: #9ca3af;
   border-radius: 12px;
   margin-bottom: 8px;
   overflow: hidden;
+
+  &.is-error {
+    background: #fef2f2;
+    border-color: #fecaca;
+  }
 }
 
 .tool-header {
@@ -1262,17 +1337,45 @@ $text-3: #9ca3af;
   gap: 8px;
   padding: 10px 14px;
   border-bottom: 1px solid #dcfce7;
+  cursor: pointer;
+  user-select: none;
+
+  .tool-card.is-error & {
+    border-bottom-color: #fecaca;
+  }
 }
 
 .tool-icon {
   color: #16a34a;
   font-size: 16px;
+  flex-shrink: 0;
+
+  &.spinning {
+    animation: spin 0.8s linear infinite;
+  }
+
+  .tool-card.is-error & {
+    color: #dc2626;
+  }
 }
 
 .tool-name {
   font-size: 13px;
   font-weight: 500;
   color: #166534;
+
+  .tool-card.is-error & {
+    color: #991b1b;
+  }
+}
+
+.tool-expand {
+  font-size: 12px;
+  color: #9ca3af;
+  margin-left: auto;
+  transition: transform 0.2s;
+
+  &.open { transform: rotate(180deg); }
 }
 
 .tool-badge {
@@ -1282,6 +1385,26 @@ $text-3: #9ca3af;
   font-size: 10px;
   background: #dcfce7;
   color: #16a34a;
+
+  &.running {
+    background: #fef3c7;
+    color: #d97706;
+    animation: badgePulse 1.5s ease-in-out infinite;
+  }
+
+  &.error {
+    background: #fecaca;
+    color: #dc2626;
+  }
+}
+
+@keyframes badgePulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 
 .tool-body {
@@ -1315,6 +1438,68 @@ $text-3: #9ca3af;
   max-height: 120px;
   overflow-y: auto;
   font-family: var(--font-mono, monospace);
+
+  &.collapsed {
+    max-height: 72px;
+    position: relative;
+
+    &::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 36px;
+      background: linear-gradient(transparent, #fff);
+      pointer-events: none;
+    }
+  }
+}
+
+// 展开结果按钮
+.expand-output-btn {
+  font-size: 11px;
+  color: $accent;
+  margin-top: 4px;
+  padding: 2px 4px;
+
+  .el-icon {
+    font-size: 10px;
+    margin-left: 2px;
+    transition: transform 0.2s;
+  }
+
+  &:hover {
+    color: #5558e6;
+    background: $accent-light;
+  }
+}
+
+// 工具执行中状态栏
+.tool-running-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 10px;
+  margin-bottom: 8px;
+}
+
+.running-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid #fde68a;
+  border-top-color: #f59e0b;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+
+.running-text {
+  font-size: 13px;
+  color: #92400e;
 }
 
 // Agent 最终回复

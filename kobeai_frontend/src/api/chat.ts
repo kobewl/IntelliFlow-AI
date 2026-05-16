@@ -15,8 +15,10 @@ export interface ChatMessage {
 
 export interface ToolCall {
   name: string
+  toolCallId?: string
   input?: string
   output?: string
+  status?: 'running' | 'done' | 'error'
 }
 
 export interface AgentEvent {
@@ -84,7 +86,10 @@ export function streamAgentChat(
   message: string,
   callbacks: {
     onReasoning?: (content: string) => void
-    onToolResult?: (toolCall: ToolCall) => void
+    onToolCallStart?: (toolCallId: string, toolCallName: string) => void
+    onToolCallArgs?: (toolCallId: string, delta: string) => void
+    onToolCallEnd?: (toolCallId: string) => void
+    onToolResult?: (toolCallId: string, content: string) => void
     onAgentResult?: (content: string) => void
     onError?: (error: string) => void
     onDone?: (fullContent: string) => void
@@ -151,19 +156,50 @@ export function streamAgentChat(
             if (!data) continue
 
             switch (currentEvent) {
+              // ---- AG-UI 协议事件 ----
+              case 'tool_call_start':
+                try {
+                  const ts = JSON.parse(data)
+                  callbacks.onToolCallStart?.(ts.toolCallId, ts.toolCallName)
+                } catch { /* ignore */ }
+                break
+              case 'tool_call_args':
+                try {
+                  const ta = JSON.parse(data)
+                  callbacks.onToolCallArgs?.(ta.toolCallId, ta.delta)
+                } catch { /* ignore */ }
+                break
+              case 'tool_call_end':
+                try {
+                  const te = JSON.parse(data)
+                  callbacks.onToolCallEnd?.(te.toolCallId)
+                } catch { /* ignore */ }
+                break
+              case 'tool_call_result':
+                try {
+                  const tr = JSON.parse(data)
+                  callbacks.onToolResult?.(tr.toolCallId, tr.content || '')
+                } catch {
+                  callbacks.onToolResult?.('unknown', data)
+                }
+                break
+              case 'text_message_content':
+                fullResponse += data
+                callbacks.onAgentResult?.(fullResponse)
+                break
+              case 'reasoning_message_content':
+                callbacks.onReasoning?.(data)
+                break
+              // ---- 兼容旧版事件 ----
               case 'reasoning':
                 callbacks.onReasoning?.(data)
                 break
               case 'tool_result':
                 try {
                   const parsed = JSON.parse(data)
-                  callbacks.onToolResult?.({
-                    name: parsed.name || parsed.tool || 'unknown',
-                    input: parsed.input || parsed.arguments,
-                    output: parsed.output || parsed.result || data
-                  })
+                  callbacks.onToolResult?.(parsed.toolCallId || 'legacy', parsed.output || parsed.result || data)
                 } catch {
-                  callbacks.onToolResult?.({ name: 'tool', output: data })
+                  callbacks.onToolResult?.('legacy', data)
                 }
                 break
               case 'agent_result':
@@ -174,7 +210,7 @@ export function streamAgentChat(
                 callbacks.onError?.(data)
                 break
               default:
-                // 没有 event 类型时当作 agent_result 处理
+                // 没有 event 类型时当作文本增量
                 fullResponse += data
                 callbacks.onAgentResult?.(fullResponse)
             }

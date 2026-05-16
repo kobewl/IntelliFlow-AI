@@ -13,8 +13,10 @@ export interface WorkbenchStep {
   input?: string
   output?: string
   content?: string
+  status?: 'pending' | 'running' | 'done' | 'error'
   startTime: number
   endTime?: number
+  toolCallId?: string
 }
 
 export interface AgentMessage {
@@ -330,28 +332,59 @@ export const useChatStore = defineStore('chat', () => {
               // 工作台: 追加思考步骤
               const lastStep = msg.steps[msg.steps.length - 1]
               if (!lastStep || lastStep.type !== 'thinking') {
-                msg.steps.push({ type: 'thinking', content: data, startTime: Date.now() })
+                msg.steps.push({ type: 'thinking', content: data, status: 'running', startTime: Date.now() })
               } else {
                 lastStep.content = (lastStep.content || '') + data
               }
             }
           },
-          onToolResult(tool) {
+          onToolCallStart(toolCallId, toolCallName) {
             const msg = messages.value.find(m => m.id === agentMsg.id)
             if (msg) {
-              msg.toolCalls.push(tool)
-              // 工作台: 结束思考步骤，添加工具步骤
+              // 结束当前的思考步骤
               const lastStep = msg.steps[msg.steps.length - 1]
               if (lastStep && lastStep.type === 'thinking' && !lastStep.endTime) {
                 lastStep.endTime = Date.now()
+                lastStep.status = 'done'
               }
+              // 添加工具步骤（运行中）
               msg.steps.push({
                 type: 'tool_call',
-                name: tool.name,
-                input: tool.input,
-                output: tool.output,
-                startTime: Date.now(),
-                endTime: Date.now()
+                name: toolCallName,
+                toolCallId,
+                status: 'running',
+                startTime: Date.now()
+              })
+            }
+          },
+          onToolCallArgs(toolCallId, delta) {
+            const msg = messages.value.find(m => m.id === agentMsg.id)
+            if (msg) {
+              const step = msg.steps.find(s => s.type === 'tool_call' && s.toolCallId === toolCallId)
+              if (step) {
+                step.input = (step.input || '') + delta
+              }
+            }
+          },
+          onToolCallEnd(toolCallId) {
+            // 工具参数接收完毕，等待执行结果
+          },
+          onToolResult(toolCallId, content) {
+            const msg = messages.value.find(m => m.id === agentMsg.id)
+            if (msg) {
+              // 查找匹配的工具步骤并更新
+              const step = msg.steps.find(s => s.type === 'tool_call' && s.toolCallId === toolCallId)
+              if (step) {
+                step.output = content
+                step.status = 'done'
+                step.endTime = Date.now()
+              }
+              // 同步到 toolCalls 列表
+              msg.toolCalls.push({
+                name: step?.name || 'unknown',
+                toolCallId,
+                output: content,
+                status: 'done'
               })
             }
           },
@@ -378,10 +411,11 @@ export const useChatStore = defineStore('chat', () => {
               msg.content = fullContent
               msg.isStreaming = false
               msg.isThinking = false
-              // 工作台: 结束最后一步
+              // 工作台: 结束所有未完成的步骤
               const lastStep = msg.steps[msg.steps.length - 1]
               if (lastStep && !lastStep.endTime) {
                 lastStep.endTime = Date.now()
+                lastStep.status = 'done'
               }
             }
             loading.value = false
