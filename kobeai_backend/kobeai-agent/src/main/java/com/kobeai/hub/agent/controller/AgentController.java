@@ -1,8 +1,11 @@
 package com.kobeai.hub.agent.controller;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kobeai.hub.agent.memory.LocalFileLongTermMemory;
 import com.kobeai.hub.agent.service.AgentService;
 import com.kobeai.hub.agent.service.ModelRouter;
+import io.agentscope.core.agui.event.AguiEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
@@ -12,6 +15,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.nio.file.Path;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -26,9 +30,10 @@ public class AgentController {
     private final ModelRouter modelRouter;
     private final LocalFileLongTermMemory longTermMemory;
     private final List<Map<String, Object>> toolInfoList;
+    private static final ObjectMapper objectMapper = new ObjectMapper();
 
     /**
-     * 流式对话接口 (AgentScope Flux SSE)
+     * 流式对话接口 (AG-UI 协议 SSE)
      */
     @GetMapping(value = "/chat", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<ServerSentEvent<String>> chat(
@@ -44,13 +49,15 @@ public class AgentController {
                 message.length() > 80 ? message.substring(0, 80) + "..." : message);
 
         return agentService.streamCall(sid, message, effectiveModel)
-                .map(event -> ServerSentEvent.<String>builder()
-                        .id(UUID.randomUUID().toString())
-                        .event(event.getType().name().toLowerCase())
-                        .data(event.getMessage() != null
-                                ? event.getMessage().getTextContent()
-                                : "")
-                        .build())
+                .map(event -> {
+                    String eventType = event.getType().name().toLowerCase();
+                    String data = convertAguiEvent(event);
+                    return ServerSentEvent.<String>builder()
+                            .id(UUID.randomUUID().toString())
+                            .event(eventType)
+                            .data(data)
+                            .build();
+                })
                 .onErrorResume(e -> {
                     log.error("Agent SSE 出错: sessionId={}", sid, e);
                     return Flux.just(ServerSentEvent.<String>builder()
@@ -58,6 +65,45 @@ public class AgentController {
                             .data("对话出错: " + e.getMessage())
                             .build());
                 });
+    }
+
+    /** 将 AguiEvent 转为前端可消费的 JSON/text */
+    private String convertAguiEvent(AguiEvent event) {
+        try {
+            if (event instanceof AguiEvent.ToolCallStart s) {
+                return objectMapper.writeValueAsString(Map.of(
+                        "toolCallId", s.toolCallId(),
+                        "toolCallName", s.toolCallName()
+                ));
+            }
+            if (event instanceof AguiEvent.ToolCallArgs a) {
+                return objectMapper.writeValueAsString(Map.of(
+                        "toolCallId", a.toolCallId(),
+                        "delta", a.delta()
+                ));
+            }
+            if (event instanceof AguiEvent.ToolCallEnd e) {
+                return objectMapper.writeValueAsString(Map.of(
+                        "toolCallId", e.toolCallId()
+                ));
+            }
+            if (event instanceof AguiEvent.ToolCallResult r) {
+                return objectMapper.writeValueAsString(Map.of(
+                        "toolCallId", r.toolCallId(),
+                        "content", r.content() != null ? r.content() : ""
+                ));
+            }
+            if (event instanceof AguiEvent.TextMessageContent t) {
+                return t.delta() != null ? t.delta() : "";
+            }
+            if (event instanceof AguiEvent.ReasoningMessageContent r) {
+                return r.delta() != null ? r.delta() : "";
+            }
+            // RUN_STARTED, RUN_FINISHED, STATE_*, etc — 不需要发给前端
+            return "";
+        } catch (JsonProcessingException e) {
+            return "";
+        }
     }
 
     /**
@@ -72,13 +118,15 @@ public class AgentController {
 
         String sid = sessionId != null ? sessionId : UUID.randomUUID().toString();
         return agentService.streamCallWithRag(sid, message, model, kbId)
-                .map(event -> ServerSentEvent.<String>builder()
-                        .id(UUID.randomUUID().toString())
-                        .event(event.getType().name().toLowerCase())
-                        .data(event.getMessage() != null
-                                ? event.getMessage().getTextContent()
-                                : "")
-                        .build())
+                .map(event -> {
+                    String eventType = event.getType().name().toLowerCase();
+                    String data = convertAguiEvent(event);
+                    return ServerSentEvent.<String>builder()
+                            .id(UUID.randomUUID().toString())
+                            .event(eventType)
+                            .data(data)
+                            .build();
+                })
                 .onErrorResume(e -> Flux.just(ServerSentEvent.<String>builder()
                         .event("error")
                         .data("对话出错: " + e.getMessage())

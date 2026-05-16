@@ -23,20 +23,25 @@
           >
             <!-- 时间线节点 -->
             <div class="step-node">
-              <div class="node-dot" :class="step.type">
+              <div class="node-dot" :class="[step.type, step.status || 'done']">
                 <el-icon v-if="step.type === 'thinking'" class="dot-icon"><Loading /></el-icon>
+                <el-icon v-else-if="step.status === 'running'" class="dot-icon spinning"><Loading /></el-icon>
                 <el-icon v-else class="dot-icon"><Tools /></el-icon>
               </div>
-              <div class="node-line" v-if="i < steps.length - 1"></div>
+              <div class="node-line" v-if="i < steps.length - 1" :class="{ active: step.status === 'running' }"></div>
             </div>
 
             <!-- 步骤内容 -->
             <div class="step-body">
               <div class="step-header" @click="toggleStep(i)">
-                <span class="step-type-badge" :class="step.type">
+                <span class="step-type-badge" :class="[step.type, step.status || 'done']">
                   {{ step.type === 'thinking' ? '思考' : '工具调用' }}
                 </span>
                 <span class="step-name" v-if="step.name">{{ step.name }}</span>
+                <span class="step-status-text" v-if="step.status === 'running'">
+                  <span class="status-spinner"></span>
+                  正在执行...
+                </span>
                 <span class="step-duration" v-if="stepDuration(step)">
                   {{ stepDuration(step) }}
                 </span>
@@ -58,7 +63,11 @@
                 </div>
                 <div class="tool-detail" v-if="step.output">
                   <span class="detail-label">返回结果</span>
-                  <code class="detail-code">{{ step.output }}</code>
+                  <code class="detail-code">{{ truncateOutput(step.output) }}</code>
+                </div>
+                <div v-if="step.status === 'running' && !step.input" class="tool-waiting">
+                  <span class="waiting-spinner"></span>
+                  <span>等待工具参数...</span>
                 </div>
               </div>
             </div>
@@ -94,6 +103,12 @@ function stepDuration(step: WorkbenchStep): string {
   const ms = step.endTime - step.startTime
   if (ms < 1000) return `${ms}ms`
   return `${(ms / 1000).toFixed(1)}s`
+}
+
+function truncateOutput(output: string): string {
+  if (!output) return ''
+  if (output.length <= 300) return output
+  return output.slice(0, 300) + '...'
 }
 
 const totalDuration = computed(() => {
@@ -216,7 +231,19 @@ $green: #16a34a;
     color: $green;
   }
 
+  &.running {
+    box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.2);
+  }
+
   .dot-icon { font-size: 11px; }
+
+  .spinning {
+    animation: spin 0.8s linear infinite;
+  }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 
 .node-line {
@@ -225,6 +252,10 @@ $green: #16a34a;
   min-height: 14px;
   background: #e5e7eb;
   margin: 3px 0;
+
+  &.active {
+    background: linear-gradient(to bottom, $green, #e5e7eb);
+  }
 }
 
 // ---- Step body ----
@@ -257,6 +288,33 @@ $green: #16a34a;
     background: #dcfce7;
     color: $green;
   }
+
+  &.running {
+    animation: badgePulse 1.5s ease-in-out infinite;
+  }
+}
+
+@keyframes badgePulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+.step-status-text {
+  font-size: 11px;
+  color: $green;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.status-spinner {
+  width: 10px;
+  height: 10px;
+  border: 2px solid #dcfce7;
+  border-top-color: $green;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  display: inline-block;
 }
 
 .step-name {
@@ -322,6 +380,26 @@ $green: #16a34a;
   font-family: var(--font-mono, monospace);
   max-height: 80px;
   overflow-y: auto;
+}
+
+.tool-waiting {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: #9ca3af;
+  font-style: italic;
+  padding: 4px 0;
+}
+
+.waiting-spinner {
+  width: 10px;
+  height: 10px;
+  border: 2px solid #e5e7eb;
+  border-top-color: #9ca3af;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  display: inline-block;
 }
 
 // ---- Transitions ----

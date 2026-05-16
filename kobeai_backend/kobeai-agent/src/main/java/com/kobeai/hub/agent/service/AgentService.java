@@ -2,12 +2,13 @@ package com.kobeai.hub.agent.service;
 
 import com.kobeai.hub.agent.memory.LocalFileLongTermMemory;
 import io.agentscope.core.ReActAgent;
-import io.agentscope.core.agent.Event;
-import io.agentscope.core.agent.EventType;
-import io.agentscope.core.agent.StreamOptions;
+import io.agentscope.core.agui.adapter.AguiAdapterConfig;
+import io.agentscope.core.agui.adapter.AguiAgentAdapter;
+import io.agentscope.core.agui.event.AguiEvent;
+import io.agentscope.core.agui.model.AguiMessage;
+import io.agentscope.core.agui.model.RunAgentInput;
 import io.agentscope.core.memory.InMemoryMemory;
 import io.agentscope.core.memory.LongTermMemoryMode;
-import io.agentscope.core.message.Msg;
 import io.agentscope.core.model.Model;
 import io.agentscope.core.tool.Toolkit;
 import lombok.extern.slf4j.Slf4j;
@@ -17,6 +18,7 @@ import reactor.core.publisher.Flux;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
@@ -65,7 +67,6 @@ public class AgentService {
 
     private AgentSession getOrCreateSession(String sessionId, String modelName) {
         return sessions.computeIfAbsent(sessionId, sid -> {
-            // 如果用户没指定模型，用路由推荐
             String resolvedModel = modelName != null ? modelName : "deepseek-v4-flash";
             Model model = modelRouter.resolve(resolvedModel);
 
@@ -87,31 +88,29 @@ public class AgentService {
         });
     }
 
-    public Flux<Event> streamCall(String sessionId, String userMessage, String modelName) {
-        // 路由建议：如果用户没指定模型，自动选择
+    /**
+     * AG-UI 协议事件流：包含 TOOL_CALL_START/TOOL_CALL_RESULT 等细粒度事件
+     */
+    public Flux<AguiEvent> streamCall(String sessionId, String userMessage, String modelName) {
         String effectiveModel = (modelName == null || modelName.isEmpty() || "auto".equals(modelName))
                 ? modelRouter.routeByTask(userMessage)
                 : modelName;
 
         AgentSession session = getOrCreateSession(sessionId, effectiveModel);
 
-        Msg msg = Msg.builder()
-                .name("user")
-                .textContent(userMessage)
+        RunAgentInput input = RunAgentInput.builder()
+                .threadId(sessionId)
+                .runId(UUID.randomUUID().toString())
+                .messages(List.of(AguiMessage.userMessage("user", userMessage)))
                 .build();
 
-        StreamOptions options = StreamOptions.builder()
-                .eventTypes(EventType.REASONING, EventType.TOOL_RESULT, EventType.AGENT_RESULT)
-                .incremental(true)
-                .build();
-
-        return session.agent.stream(List.of(msg), options)
+        return session.aguiAdapter.run(input)
                 .doOnComplete(() -> log.info("Agent 回复完成: sessionId={}", sessionId))
                 .doOnError(e -> log.error("Agent 会话出错: sessionId={}", sessionId, e));
     }
 
-    public Flux<Event> streamCallWithRag(String sessionId, String userMessage,
-                                          String modelName, String kbId) {
+    public Flux<AguiEvent> streamCallWithRag(String sessionId, String userMessage,
+                                              String modelName, String kbId) {
         List<String> docs = ragService.retrieve(userMessage, kbId);
         String enhancedMessage = userMessage;
         if (docs != null && !docs.isEmpty()) {
@@ -148,6 +147,7 @@ public class AgentService {
 
     static class AgentSession {
         final ReActAgent agent;
+        final AguiAgentAdapter aguiAdapter;
         final ModelRouter modelRouter;
         final String modelName;
         final LocalDateTime createdAt;
@@ -157,6 +157,10 @@ public class AgentService {
             this.modelRouter = modelRouter;
             this.modelName = modelName;
             this.createdAt = LocalDateTime.now();
+            this.aguiAdapter = new AguiAgentAdapter(agent, AguiAdapterConfig.builder()
+                    .emitToolCallArgs(true)
+                    .enableReasoning(true)
+                    .build());
         }
     }
 
