@@ -7,6 +7,16 @@ import { useAuthStore } from './auth'
 
 // ---- Agent 消息类型 ----
 
+export interface WorkbenchStep {
+  type: 'thinking' | 'tool_call'
+  name?: string
+  input?: string
+  output?: string
+  content?: string
+  startTime: number
+  endTime?: number
+}
+
 export interface AgentMessage {
   id: number
   role: 'user' | 'agent'
@@ -15,6 +25,8 @@ export interface AgentMessage {
   // Agent思考过程 (流式拼接的纯文本)
   reasoning: string
   toolCalls: ToolCall[]
+  // 工作台步骤 (时间线)
+  steps: WorkbenchStep[]
   isStreaming: boolean
   isThinking: boolean
   error?: string
@@ -28,9 +40,20 @@ function msgToAgent(msg: ChatMessage): AgentMessage {
     createdAt: msg.createdAt,
     reasoning: '',
     toolCalls: [],
+    steps: [],
     isStreaming: false,
     isThinking: false
   }
+}
+
+// ---- 分支类型 ----
+
+export interface Branch {
+  id: string
+  name: string
+  forkMessageIndex: number
+  messageCount: number
+  createdAt: string
 }
 
 // ---- Store ----
@@ -96,6 +119,7 @@ export const useChatStore = defineStore('chat', () => {
       conversations.value.unshift(conv)
       currentConversationId.value = conv.id
       messages.value = []
+      loadBranches()
       return conv
     }
     throw new Error('创建会话失败')
@@ -109,7 +133,16 @@ export const useChatStore = defineStore('chat', () => {
         const idx = conversations.value.findIndex(c => c.id === id)
         if (idx !== -1) conversations.value[idx] = res.data
         currentConversationId.value = id
-        messages.value = (res.data.messages || []).map(msgToAgent)
+        loadBranches()
+        // 如果有已保存的分支消息则用分支，否则用服务端消息
+        if (branches.value['main'] && branches.value['main'].length > 0) {
+          messages.value = branches.value[activeBranchId.value]
+            ? [...branches.value[activeBranchId.value]]
+            : [...branches.value['main']]
+        } else {
+          messages.value = (res.data.messages || []).map(msgToAgent)
+          branches.value['main'] = [...messages.value]
+        }
       }
     } finally {
       loading.value = false
@@ -150,6 +183,99 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
+  // ---- 分支管理 ----
+
+  const branches = ref<Record<string, AgentMessage[]>>({})
+  const activeBranchId = ref<string>('main')
+  const branchMeta = ref<Record<string, Branch>>({})
+
+  function getBranchKey() {
+    return `chat_branches_${currentConversationId.value}`
+  }
+
+  function loadBranches() {
+    try {
+      const saved = localStorage.getItem(getBranchKey())
+      if (saved) {
+        const data = JSON.parse(saved)
+        branches.value = data.branches || { main: [] }
+        activeBranchId.value = data.active || 'main'
+        branchMeta.value = data.meta || {}
+        messages.value = branches.value[activeBranchId.value]
+          ? [...branches.value[activeBranchId.value]]
+          : []
+      } else {
+        branches.value = { main: [] }
+        activeBranchId.value = 'main'
+        branchMeta.value = { main: { id: 'main', name: '主分支', forkMessageIndex: 0, messageCount: 0, createdAt: new Date().toISOString() } }
+      }
+    } catch {
+      branches.value = { main: [] }
+      activeBranchId.value = 'main'
+      messages.value = []
+    }
+  }
+
+  function saveBranches() {
+    // 同步当前消息到活跃分支
+    branches.value[activeBranchId.value] = [...messages.value]
+    // 更新分支元信息
+    const meta = branchMeta.value[activeBranchId.value]
+    if (meta) {
+      meta.messageCount = messages.value.length
+    }
+    try {
+      localStorage.setItem(getBranchKey(), JSON.stringify({
+        branches: branches.value,
+        active: activeBranchId.value,
+        meta: branchMeta.value
+      }))
+    } catch { /* ignore */ }
+  }
+
+  function forkBranch(msgIndex: number, name?: string) {
+    saveBranches()
+    const forkMessages = messages.value.slice(0, msgIndex + 1)
+    const branchId = `branch-${Date.now()}`
+    branches.value[branchId] = [...forkMessages]
+    branchMeta.value[branchId] = {
+      id: branchId,
+      name: name || `分支 ${Object.keys(branches.value).length}`,
+      forkMessageIndex: msgIndex,
+      messageCount: forkMessages.length,
+      createdAt: new Date().toISOString()
+    }
+    activeBranchId.value = branchId
+    messages.value = [...forkMessages]
+    saveBranches()
+    return branchId
+  }
+
+  function switchBranch(branchId: string) {
+    if (branchId === activeBranchId.value) return
+    saveBranches()
+    activeBranchId.value = branchId
+    messages.value = branches.value[branchId] ? [...branches.value[branchId]] : []
+    saveBranches()
+  }
+
+  function deleteBranch(branchId: string) {
+    if (branchId === 'main') return
+    delete branches.value[branchId]
+    delete branchMeta.value[branchId]
+    if (activeBranchId.value === branchId) {
+      activeBranchId.value = 'main'
+      messages.value = branches.value['main'] ? [...branches.value['main']] : []
+    }
+    saveBranches()
+  }
+
+  function getBranchList() {
+    return Object.values(branchMeta.value).sort((a, b) =>
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    )
+  }
+
   // ---- 发送消息 (Agent SSE) ----
 
   async function sendMessage(content: string) {
@@ -170,6 +296,7 @@ export const useChatStore = defineStore('chat', () => {
       createdAt: new Date().toISOString(),
       reasoning: '',
       toolCalls: [],
+      steps: [],
       isStreaming: false,
       isThinking: false
     }
@@ -183,6 +310,7 @@ export const useChatStore = defineStore('chat', () => {
       createdAt: new Date().toISOString(),
       reasoning: '',
       toolCalls: [],
+      steps: [],
       isStreaming: true,
       isThinking: true
     }
@@ -199,12 +327,32 @@ export const useChatStore = defineStore('chat', () => {
             if (msg) {
               msg.reasoning += data
               msg.isThinking = true
+              // 工作台: 追加思考步骤
+              const lastStep = msg.steps[msg.steps.length - 1]
+              if (!lastStep || lastStep.type !== 'thinking') {
+                msg.steps.push({ type: 'thinking', content: data, startTime: Date.now() })
+              } else {
+                lastStep.content = (lastStep.content || '') + data
+              }
             }
           },
           onToolResult(tool) {
             const msg = messages.value.find(m => m.id === agentMsg.id)
             if (msg) {
               msg.toolCalls.push(tool)
+              // 工作台: 结束思考步骤，添加工具步骤
+              const lastStep = msg.steps[msg.steps.length - 1]
+              if (lastStep && lastStep.type === 'thinking' && !lastStep.endTime) {
+                lastStep.endTime = Date.now()
+              }
+              msg.steps.push({
+                type: 'tool_call',
+                name: tool.name,
+                input: tool.input,
+                output: tool.output,
+                startTime: Date.now(),
+                endTime: Date.now()
+              })
             }
           },
           onAgentResult(text) {
@@ -230,8 +378,14 @@ export const useChatStore = defineStore('chat', () => {
               msg.content = fullContent
               msg.isStreaming = false
               msg.isThinking = false
+              // 工作台: 结束最后一步
+              const lastStep = msg.steps[msg.steps.length - 1]
+              if (lastStep && !lastStep.endTime) {
+                lastStep.endTime = Date.now()
+              }
             }
             loading.value = false
+            saveBranches()
             resolve()
           }
         }
@@ -255,6 +409,9 @@ export const useChatStore = defineStore('chat', () => {
     conversations.value = []
     currentConversationId.value = null
     messages.value = []
+    branches.value = {}
+    activeBranchId.value = 'main'
+    branchMeta.value = {}
     localStorage.removeItem('chat_state')
   }
 
@@ -267,6 +424,16 @@ export const useChatStore = defineStore('chat', () => {
     messages,
     loading,
     loadingMore,
+    // 分支
+    activeBranchId,
+    branchMeta,
+    getBranchList,
+    forkBranch,
+    switchBranch,
+    deleteBranch,
+    loadBranches,
+    saveBranches,
+    // 会话
     loadConversations,
     createConversation,
     switchConversation,

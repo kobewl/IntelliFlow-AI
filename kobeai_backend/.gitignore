@@ -101,6 +101,8 @@ yarn-error.log*
 /files/
 /static/
 /public/
+data/memory/
+sandbox-tmp/
 *.bak
 *.swp
 *.swo

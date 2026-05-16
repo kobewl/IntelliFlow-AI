@@ -31,6 +31,13 @@ public class AgentService {
             - 执行复杂的数学计算（计算器）
             - 搜索知识库获取专业信息
             - 查看系统运行状态
+            - 在沙盒中执行 Python / JavaScript / Shell 代码
+
+            ## 代码沙盒使用说明
+            - run_python: 执行 Python 代码，适用于数据处理、算法演示
+            - run_javascript: 执行 JS 代码（Node.js），适用于前端逻辑测试
+            - run_shell: 执行 Shell 命令（危险命令已过滤，超时 10 秒）
+            - 代码输出限制 5000 字符，超大数据请用 print 分批输出
 
             ## 行为准则
             - 使用中文回答，语气友好专业
@@ -43,14 +50,17 @@ public class AgentService {
     private final RagService ragService;
     private final Toolkit toolkit;
     private final LocalFileLongTermMemory longTermMemory;
+    private final MemorySummarizer memorySummarizer;
     private final Map<String, AgentSession> sessions = new ConcurrentHashMap<>();
 
     public AgentService(ModelRouter modelRouter, RagService ragService,
-                        Toolkit toolkit, LocalFileLongTermMemory longTermMemory) {
+                        Toolkit toolkit, LocalFileLongTermMemory longTermMemory,
+                        MemorySummarizer memorySummarizer) {
         this.modelRouter = modelRouter;
         this.ragService = ragService;
         this.toolkit = toolkit;
         this.longTermMemory = longTermMemory;
+        this.memorySummarizer = memorySummarizer;
     }
 
     private AgentSession getOrCreateSession(String sessionId, String modelName) {
@@ -127,6 +137,7 @@ public class AgentService {
             session.agent.interrupt();
             log.info("Agent 会话已关闭: sessionId={}, 剩余活跃会话: {}", sessionId, sessions.size());
         }
+        memorySummarizer.summarizeOnClose();
     }
 
     public int getActiveSessionCount() {

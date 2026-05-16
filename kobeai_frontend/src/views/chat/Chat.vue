@@ -162,6 +162,21 @@
               <el-option label="DeepSeek V4 Flash" value="deepseek-v4-flash" />
               <el-option label="DeepSeek V4 Pro" value="deepseek-v4-pro" />
             </el-select>
+            <!-- 分支选择器 -->
+            <el-select
+              v-if="branchList.length > 1"
+              v-model="chatStore.activeBranchId"
+              size="small"
+              class="branch-select"
+              @change="handleBranchSwitch"
+            >
+              <el-option
+                v-for="b in branchList"
+                :key="b.id"
+                :label="b.name + ' (' + b.messageCount + '条)'"
+                :value="b.id"
+              />
+            </el-select>
             <el-button text class="clear-btn" @click="handleClearChat" title="清空对话">
               <el-icon><Delete /></el-icon>
             </el-button>
@@ -187,6 +202,20 @@
               <div class="user-bubble">
                 <div class="bubble-text">{{ msg.content }}</div>
                 <span class="bubble-time">{{ formatMsgTime(msg.createdAt) }}</span>
+              </div>
+              <div class="user-msg-actions">
+                <el-tooltip content="从这里分叉对话" placement="left">
+                  <el-button
+                    class="fork-btn"
+                    size="small"
+                    circle
+                    text
+                    @click="handleFork(i)"
+                    :disabled="loading"
+                  >
+                    <el-icon><Share /></el-icon>
+                  </el-button>
+                </el-tooltip>
               </div>
               <el-avatar :size="30" :src="authStore.user?.avatar || '/ai-avatar.png'" class="msg-avatar" />
             </template>
@@ -232,6 +261,9 @@
                     </div>
                   </transition>
                 </div>
+
+                <!-- 工作台时间线 -->
+                <AgentWorkbench :steps="msg.steps" />
 
                 <!-- 工具调用 -->
                 <div
@@ -348,13 +380,14 @@ import {
   Plus, Position, Delete, Edit, MoreFilled,
   Loading, Check, ArrowDown, Operation,
   WarningFilled, SwitchButton, Fold, ChatRound,
-  Search, Tools, CloseBold
+  Search, Tools, CloseBold, Share
 } from '@element-plus/icons-vue'
 import { useAuthStore } from '../../stores/auth'
 import { useChatStore } from '../../stores/chat'
 import { agentApi } from '../../api/chat'
 import type { Conversation, ToolInfo } from '../../api/chat'
 import MarkdownRenderer from '../../components/MarkdownRenderer.vue'
+import AgentWorkbench from '../../components/AgentWorkbench.vue'
 import dayjs from 'dayjs'
 import relativeTime from 'dayjs/plugin/relativeTime'
 import 'dayjs/locale/zh-cn'
@@ -372,7 +405,9 @@ const {
   currentConversation,
   messages,
   loading,
-  loadingMore
+  loadingMore,
+  activeBranchId,
+  branchMeta
 } = storeToRefs(chatStore)
 
 // ---- 状态 ----
@@ -411,6 +446,8 @@ const filteredConversations = computed(() => {
 })
 
 const topTools = computed(() => toolInfos.value.slice(0, 4))
+
+const branchList = computed(() => chatStore.getBranchList())
 
 const iframePath = '/ai-avatar.png'
 
@@ -578,6 +615,25 @@ function handleModelChange(val: string) {
 
 async function handleLoadMore() {
   await chatStore.loadMoreMessages()
+}
+
+// ---- 分支操作 ----
+
+function handleBranchSwitch(branchId: string) {
+  chatStore.switchBranch(branchId)
+  scrollToBottom()
+}
+
+function handleFork(msgIndex: number) {
+  ElMessageBox.prompt('输入分支名称（可选）', '创建对话分支', {
+    confirmButtonText: '分叉',
+    cancelButtonText: '取消',
+    inputPlaceholder: '默认: 分支 N'
+  }).then(({ value }) => {
+    const branchId = chatStore.forkBranch(msgIndex, value || undefined)
+    ElMessage.success(`已创建分支: ${branchMeta.value[branchId]?.name || '分支'}`)
+    scrollToBottom()
+  }).catch(() => { /* 取消 */ })
 }
 
 async function handleLogout() {
@@ -982,6 +1038,8 @@ $text-3: #9ca3af;
 
 .model-select { width: 160px; }
 
+.branch-select { width: 150px; }
+
 .clear-btn { color: $text-3; }
 
 // ---- 消息区域 ----
@@ -1044,6 +1102,26 @@ $text-3: #9ca3af;
 .msg-avatar {
   flex-shrink: 0;
   align-self: flex-end;
+}
+
+// 用户消息操作按钮
+.user-msg-actions {
+  display: flex;
+  align-items: center;
+  opacity: 0;
+  transition: opacity 0.15s;
+
+  .message-row:hover & {
+    opacity: 1;
+  }
+}
+
+.fork-btn {
+  color: #9ca3af;
+  font-size: 15px;
+  padding: 4px;
+
+  &:hover { color: $accent; background: $accent-light; }
 }
 
 // Agent 消息
