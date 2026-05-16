@@ -1,9 +1,18 @@
 <template>
   <div class="agent-chat">
     <!-- 左侧栏 -->
-    <aside class="sidebar">
+    <aside class="sidebar" :class="{ collapsed: !showSidebar }">
       <div class="sidebar-top">
         <router-link to="/" class="sidebar-logo">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" class="logo-icon">
+            <rect width="24" height="24" rx="6" fill="url(#logo-grad)" />
+            <path d="M7 9h10M7 12h7M7 15h4" stroke="#fff" stroke-width="1.5" stroke-linecap="round" />
+            <defs>
+              <linearGradient id="logo-grad" x1="0" y1="0" x2="24" y2="24">
+                <stop stop-color="#6366f1" /><stop offset="1" stop-color="#8b5cf6" />
+              </linearGradient>
+            </defs>
+          </svg>
           <span>KobeAI</span>
         </router-link>
         <el-button class="new-chat-btn" @click="handleNewChat">
@@ -12,16 +21,30 @@
         </el-button>
       </div>
 
+      <!-- 会话搜索 -->
+      <div class="search-box" v-if="conversations.length > 3">
+        <el-input v-model="searchText" size="small" placeholder="搜索会话..." clearable>
+          <template #prefix><el-icon><Search /></el-icon></template>
+        </el-input>
+      </div>
+
+      <!-- 会话列表 -->
       <div class="conversation-list" ref="listRef">
         <div
-          v-for="conv in conversations"
+          v-for="conv in filteredConversations"
           :key="conv.id"
           class="conv-item"
           :class="{ active: conv.id === currentConversationId }"
           @click="handleSelectConv(conv.id)"
         >
-          <div class="conv-title">{{ conv.title || '新对话' }}</div>
-          <div class="conv-time">{{ formatTime(conv.updatedAt) }}</div>
+          <el-icon class="conv-icon"><ChatRound /></el-icon>
+          <div class="conv-info">
+            <div class="conv-title">{{ conv.title || '新对话' }}</div>
+            <div class="conv-meta">
+              <span class="conv-time">{{ formatTime(conv.updatedAt) }}</span>
+              <span class="conv-count" v-if="conv.messageCount">{{ conv.messageCount }} 条</span>
+            </div>
+          </div>
           <div class="conv-actions" @click.stop>
             <el-dropdown trigger="click" placement="bottom-start">
               <span class="conv-more"><el-icon><MoreFilled /></el-icon></span>
@@ -40,15 +63,29 @@
           </div>
         </div>
 
-        <div v-if="conversations.length === 0" class="no-conversations">
-          <p>暂无对话</p>
-          <span>点击上方按钮开始</span>
+        <div v-if="filteredConversations.length === 0 && conversations.length === 0" class="empty-list">
+          <svg width="48" height="48" viewBox="0 0 48 48" fill="none" class="empty-icon">
+            <rect x="6" y="8" width="36" height="32" rx="4" stroke="#d1d5db" stroke-width="2" />
+            <line x1="12" y1="18" x2="36" y2="18" stroke="#e5e7eb" stroke-width="1.5" />
+            <line x1="12" y1="24" x2="30" y2="24" stroke="#e5e7eb" stroke-width="1.5" />
+            <line x1="12" y1="30" x2="24" y2="30" stroke="#e5e7eb" stroke-width="1.5" />
+          </svg>
+          <p>开始你的第一次对话</p>
+        </div>
+        <div v-else-if="filteredConversations.length === 0" class="empty-list">
+          <p>没有匹配的会话</p>
         </div>
       </div>
 
+      <!-- 底部状态区 -->
       <div class="sidebar-bottom">
+        <div class="agent-status">
+          <span class="status-dot"></span>
+          <span>Agent 就绪</span>
+          <span class="tool-count" v-if="toolCount > 0">{{ toolCount }} 个工具</span>
+        </div>
         <div class="user-area" v-if="authStore.isAuthenticated">
-          <el-avatar :size="32" :src="authStore.user?.avatar || '/ai-avatar.png'" />
+          <el-avatar :size="28" :src="authStore.user?.avatar || '/ai-avatar.png'" />
           <span class="user-name">{{ authStore.user?.username }}</span>
           <el-icon class="logout-icon" @click="handleLogout" title="退出登录">
             <SwitchButton />
@@ -59,36 +96,53 @@
 
     <!-- 右侧主区域 -->
     <div class="main-area">
-      <!-- 空状态 -->
+      <!-- 欢迎页 -->
       <div v-if="!currentConversationId" class="welcome">
-        <div class="welcome-icon">
-          <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
-            <rect width="64" height="64" rx="16" fill="url(#grad)" />
-            <path d="M20 24h24M20 32h18M20 40h12" stroke="#fff" stroke-width="2.5" stroke-linecap="round" />
-            <defs>
-              <linearGradient id="grad" x1="0" y1="0" x2="64" y2="64">
-                <stop stop-color="#6366f1" /><stop offset="1" stop-color="#8b5cf6" />
-              </linearGradient>
-            </defs>
-          </svg>
-        </div>
-        <h1>有什么我可以帮你的？</h1>
-        <p class="welcome-sub">Agent 会一步步思考，解决你的问题</p>
-        <div class="quick-prompts">
-          <div
-            v-for="prompt in quickPrompts"
-            :key="prompt"
-            class="quick-prompt"
-            @click="handleQuickPrompt(prompt)"
-          >
-            {{ prompt }}
+        <div class="welcome-bg"></div>
+        <div class="welcome-content">
+          <div class="welcome-icon">
+            <svg width="72" height="72" viewBox="0 0 72 72" fill="none">
+              <circle cx="36" cy="36" r="36" fill="url(#welcome-grad)" />
+              <circle cx="36" cy="36" r="36" fill="url(#welcome-grad2)" opacity="0.5" />
+              <path d="M24 28h24M24 36h18M24 44h12" stroke="#fff" stroke-width="3" stroke-linecap="round" />
+              <defs>
+                <linearGradient id="welcome-grad" x1="0" y1="0" x2="72" y2="72">
+                  <stop stop-color="#6366f1" /><stop offset="1" stop-color="#8b5cf6" />
+                </linearGradient>
+                <radialGradient id="welcome-grad2" cx="0.3" cy="0.3" r="1">
+                  <stop stop-color="#a5b4fc" /><stop offset="1" stop-color="transparent" />
+                </radialGradient>
+              </defs>
+            </svg>
+          </div>
+          <h1>{{ greetingText }}</h1>
+          <p class="welcome-sub">我可以帮你编程、计算、搜索知识库，试试下面的问题吧</p>
+
+          <!-- 快捷提示 -->
+          <div class="quick-prompts">
+            <div
+              v-for="prompt in quickPrompts"
+              :key="prompt.text"
+              class="quick-prompt"
+              @click="handleQuickPrompt(prompt.text)"
+            >
+              <span class="prompt-icon">{{ prompt.icon }}</span>
+              <span class="prompt-text">{{ prompt.text }}</span>
+            </div>
+          </div>
+
+          <!-- 工具能力展示 -->
+          <div class="capability-bar" v-if="toolCount > 0">
+            <span class="cap-title">可用能力</span>
+            <div class="cap-tags">
+              <span v-for="t in topTools" :key="t.name" class="cap-tag">{{ t.description }}</span>
+            </div>
           </div>
         </div>
       </div>
 
       <!-- 对话区域 -->
       <template v-else>
-        <!-- 顶栏 -->
         <header class="chat-header">
           <div class="header-left">
             <el-button class="sidebar-toggle" text @click="showSidebar = !showSidebar">
@@ -102,21 +156,24 @@
               size="small"
               class="model-select"
               placeholder="选择模型"
+              @change="handleModelChange"
             >
-              <el-option label="DeepSeek-Chat" value="deepseek-chat" />
-              <el-option label="DeepSeek-Reasoner" value="deepseek-reasoner" />
+              <el-option label="自动选择" value="auto" />
+              <el-option label="DeepSeek V4 Flash" value="deepseek-v4-flash" />
+              <el-option label="DeepSeek V4 Pro" value="deepseek-v4-pro" />
             </el-select>
+            <el-button text class="clear-btn" @click="handleClearChat" title="清空对话">
+              <el-icon><Delete /></el-icon>
+            </el-button>
           </div>
         </header>
 
         <!-- 消息列表 -->
         <div class="messages-container" ref="msgContainerRef">
-          <div
-            v-if="loadingMore"
-            class="load-more"
-            @click="handleLoadMore"
-          >
-            <el-button text size="small" :loading="loadingMore">加载更早的消息</el-button>
+          <div v-if="loadingMore" class="load-more">
+            <el-button text size="small" :loading="loadingMore" @click="handleLoadMore">
+              加载更早的消息
+            </el-button>
           </div>
 
           <div
@@ -129,18 +186,19 @@
             <template v-if="msg.role === 'user'">
               <div class="user-bubble">
                 <div class="bubble-text">{{ msg.content }}</div>
+                <span class="bubble-time">{{ formatMsgTime(msg.createdAt) }}</span>
               </div>
-              <el-avatar :size="28" :src="authStore.user?.avatar || '/ai-avatar.png'" class="msg-avatar" />
+              <el-avatar :size="30" :src="authStore.user?.avatar || '/ai-avatar.png'" class="msg-avatar" />
             </template>
 
             <!-- Agent 消息 -->
             <template v-else>
               <div class="agent-avatar">
-                <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-                  <rect width="28" height="28" rx="8" fill="url(#ai-grad)" />
-                  <path d="M8 10h12M8 14h8M8 18h5" stroke="#fff" stroke-width="1.5" stroke-linecap="round" />
+                <svg width="30" height="30" viewBox="0 0 30 30" fill="none">
+                  <rect width="30" height="30" rx="8" fill="url(#ai-grad)" />
+                  <path d="M8 10h14M8 15h10M8 20h7" stroke="#fff" stroke-width="1.5" stroke-linecap="round" />
                   <defs>
-                    <linearGradient id="ai-grad" x1="0" y1="0" x2="28" y2="28">
+                    <linearGradient id="ai-grad" x1="0" y1="0" x2="30" y2="30">
                       <stop stop-color="#6366f1" /><stop offset="1" stop-color="#8b5cf6" />
                     </linearGradient>
                   </defs>
@@ -151,31 +209,28 @@
                 <div
                   v-if="msg.reasoning.length > 0 || msg.isThinking"
                   class="thinking-card"
+                  :class="{ collapsed: !msg._thinkingOpen }"
                 >
                   <div class="thinking-header" @click="msg._thinkingOpen = !msg._thinkingOpen">
-                    <el-icon class="thinking-icon" :class="{ spinning: msg.isThinking }">
-                      <Loading v-if="msg.isThinking" />
-                      <Check v-else />
-                    </el-icon>
-                    <span>{{ msg.isThinking ? '正在思考...' : `思考过程 (${msg.reasoning.length} 步)` }}</span>
+                    <div class="thinking-header-left">
+                      <span class="thinking-dot" :class="{ active: msg.isThinking }"></span>
+                      <span class="thinking-label">
+                        {{ msg.isThinking ? '深度思考中...' : '思考过程' }}
+                      </span>
+                    </div>
                     <el-icon class="expand-icon" :class="{ expanded: msg._thinkingOpen }">
                       <ArrowDown />
                     </el-icon>
                   </div>
-                  <div class="thinking-body" v-show="msg._thinkingOpen">
-                    <div
-                      v-for="(step, i) in msg.reasoning"
-                      :key="i"
-                      class="thinking-step"
-                    >
-                      <span class="step-num">{{ i + 1 }}</span>
-                      <span class="step-text">{{ step }}</span>
+                  <transition name="collapse">
+                    <div class="thinking-body" v-show="msg._thinkingOpen">
+                      <div class="thinking-text">{{ msg.reasoning }}</div>
+                      <div v-if="msg.isThinking" class="thinking-pending">
+                        <span class="step-loading"></span>
+                        <span class="step-text dim">思考中...</span>
+                      </div>
                     </div>
-                    <div v-if="msg.isThinking" class="thinking-step thinking-pending">
-                      <span class="step-dot"></span>
-                      <span class="step-text dim">分析中...</span>
-                    </div>
-                  </div>
+                  </transition>
                 </div>
 
                 <!-- 工具调用 -->
@@ -185,24 +240,26 @@
                   class="tool-card"
                 >
                   <div class="tool-header">
-                    <el-icon><Operation /></el-icon>
-                    <span>调用工具：{{ tool.name }}</span>
+                    <el-icon class="tool-icon"><Tools /></el-icon>
+                    <span class="tool-name">{{ tool.name }}</span>
+                    <span class="tool-badge">工具调用</span>
                   </div>
                   <div class="tool-body">
                     <div v-if="tool.input" class="tool-section">
-                      <span class="tool-label">输入</span>
+                      <span class="tool-label">输入参数</span>
                       <code class="tool-code">{{ tool.input }}</code>
                     </div>
                     <div v-if="tool.output" class="tool-section">
-                      <span class="tool-label">输出</span>
+                      <span class="tool-label">返回结果</span>
                       <code class="tool-code">{{ tool.output }}</code>
                     </div>
                   </div>
                 </div>
 
                 <!-- 最终回复 -->
-                <div v-if="msg.content" class="agent-bubble">
+                <div v-if="msg.content" class="agent-bubble" :class="{ streaming: msg.isStreaming }">
                   <MarkdownRenderer :content="msg.content" />
+                  <span class="bubble-time agent-time">{{ formatMsgTime(msg.createdAt) }}</span>
                 </div>
 
                 <!-- 错误 -->
@@ -221,30 +278,50 @@
         <div class="input-area">
           <div class="input-box">
             <el-input
+              ref="inputRef"
               v-model="inputText"
               type="textarea"
               :autosize="{ minRows: 1, maxRows: 5 }"
-              placeholder="输入消息，Enter 发送，Shift+Enter 换行"
+              :placeholder="inputPlaceholder"
               :disabled="loading"
               @keydown.enter.exact.prevent="handleSend"
               @keydown.enter.shift.exact="inputText += '\n'"
+              @keydown.escape="inputText = ''"
+              @input="handleInputChange"
             />
             <div class="input-actions">
-              <div></div>
-              <el-button
-                type="primary"
-                :disabled="!inputText.trim() || loading"
-                @click="handleSend"
-              >
-                <template v-if="loading">
-                  <el-icon class="is-loading"><Loading /></el-icon>
-                  <span>停止</span>
-                </template>
-                <template v-else>
+              <div class="input-hints">
+                <span class="hint" v-if="inputText.startsWith('/')">
+                  <span class="hint-cmd" @click="handleCommand('/help')">/help</span>
+                  <span class="hint-cmd" @click="handleCommand('/clear')">/clear</span>
+                  <span class="hint-cmd" @click="handleCommand('/tools')">/tools</span>
+                </span>
+                <span class="hint" v-else>Enter 发送 · Shift+Enter 换行 · Esc 清空</span>
+              </div>
+              <div class="input-right">
+                <span class="char-count" v-if="inputText.length > 500">
+                  {{ inputText.length }}
+                </span>
+                <el-button
+                  v-if="loading"
+                  type="danger"
+                  plain
+                  size="small"
+                  @click="handleStop"
+                >
+                  <el-icon><CloseBold /></el-icon>
+                  停止
+                </el-button>
+                <el-button
+                  v-else
+                  type="primary"
+                  :disabled="!inputText.trim()"
+                  @click="handleSend"
+                >
                   <el-icon><Position /></el-icon>
-                  <span>发送</span>
-                </template>
-              </el-button>
+                  发送
+                </el-button>
+              </div>
             </div>
           </div>
         </div>
@@ -263,18 +340,20 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, nextTick, watch } from 'vue'
+import { ref, computed, onMounted, nextTick, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   Plus, Position, Delete, Edit, MoreFilled,
   Loading, Check, ArrowDown, Operation,
-  WarningFilled, SwitchButton, Fold
+  WarningFilled, SwitchButton, Fold, ChatRound,
+  Search, Tools, CloseBold
 } from '@element-plus/icons-vue'
 import { useAuthStore } from '../../stores/auth'
 import { useChatStore } from '../../stores/chat'
-import type { Conversation } from '../../api/chat'
+import { agentApi } from '../../api/chat'
+import type { Conversation, ToolInfo } from '../../api/chat'
 import MarkdownRenderer from '../../components/MarkdownRenderer.vue'
 import dayjs from 'dayjs'
 import relativeTime from 'dayjs/plugin/relativeTime'
@@ -296,51 +375,97 @@ const {
   loadingMore
 } = storeToRefs(chatStore)
 
+// ---- 状态 ----
 const inputText = ref('')
-const selectedModel = ref('deepseek-chat')
+const selectedModel = ref('auto')
 const showSidebar = ref(true)
+const searchText = ref('')
 const msgContainerRef = ref<HTMLElement | null>(null)
 const scrollAnchorRef = ref<HTMLElement | null>(null)
+const inputRef = ref<any>(null)
 const renameVisible = ref(false)
 const renameText = ref('')
 const renameTarget = ref<Conversation | null>(null)
+const toolInfos = ref<ToolInfo[]>([])
+const toolCount = ref(0)
+
+// ---- 计算属性 ----
+
+const greetingText = computed(() => {
+  const h = new Date().getHours()
+  if (h < 6) return '夜深了，早点休息'
+  if (h < 12) return '早上好，有什么我可以帮你的？'
+  if (h < 14) return '中午好，需要我帮你做些什么？'
+  if (h < 18) return '下午好，一起开始高效工作吧'
+  return '晚上好，有什么需要我帮忙的？'
+})
+
+const inputPlaceholder = computed(() =>
+  loading.value ? 'Agent 正在回复中...' : '输入消息，Enter 发送，Shift+Enter 换行'
+)
+
+const filteredConversations = computed(() => {
+  if (!searchText.value.trim()) return conversations.value
+  const q = searchText.value.toLowerCase()
+  return conversations.value.filter(c => (c.title || '').toLowerCase().includes(q))
+})
+
+const topTools = computed(() => toolInfos.value.slice(0, 4))
+
+const iframePath = '/ai-avatar.png'
 
 const quickPrompts = [
-  '帮我写一个 Python 爬虫脚本',
-  '解释一下什么是机器学习',
-  '帮我优化这段代码的性能',
-  '写一份项目计划书'
+  { icon: '⏰', text: '现在几点了？帮我算一下 3^10' },
+  { icon: '💻', text: '写一个 Python 快速排序算法' },
+  { icon: '📊', text: '帮我分析一下这个项目的架构' },
+  { icon: '🔍', text: '搜索知识库中关于 Spring Boot 的内容' }
 ]
 
+// ---- 时间格式化 ----
 function formatTime(t: string) {
   return dayjs(t).fromNow()
 }
 
+function formatMsgTime(t: string) {
+  return dayjs(t).format('HH:mm')
+}
+
+// ---- 滚动 ----
 function scrollToBottom() {
   nextTick(() => {
     scrollAnchorRef.value?.scrollIntoView({ behavior: 'smooth' })
   })
 }
 
-// 监听消息变化自动滚动
 watch(() => messages.value.length, scrollToBottom)
 watch(() => {
-  const lastMsg = messages.value[messages.value.length - 1]
-  return lastMsg?.content?.length ?? 0
+  const last = messages.value[messages.value.length - 1]
+  return last?.content?.length ?? 0
 }, scrollToBottom)
 
+// ---- 初始化 ----
 onMounted(async () => {
   await chatStore.loadConversations()
   if (currentConversationId.value) {
     await chatStore.switchConversation(currentConversationId.value)
     scrollToBottom()
   }
+  // 获取工具列表
+  try {
+    const res = await agentApi.getTools()
+    if (res.code === 200) {
+      toolInfos.value = res.data
+      toolCount.value = res.total
+    }
+  } catch { /* 后端不可用 */ }
 })
 
+// ---- 会话操作 ----
 async function handleNewChat() {
   try {
     await chatStore.createConversation()
     scrollToBottom()
+    nextTick(() => inputRef.value?.focus())
   } catch (err: any) {
     ElMessage.error(err.message || '创建失败')
   }
@@ -354,9 +479,7 @@ async function handleSelectConv(id: number) {
 async function handleDeleteConv(id: number) {
   try {
     await ElMessageBox.confirm('确定删除这个会话吗？', '提示', {
-      type: 'warning',
-      confirmButtonText: '删除',
-      cancelButtonText: '取消'
+      type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消'
     })
     await chatStore.deleteConversation(id)
   } catch { /* 取消 */ }
@@ -375,6 +498,7 @@ async function confirmRename() {
   renameVisible.value = false
 }
 
+// ---- 消息操作 ----
 function handleQuickPrompt(prompt: string) {
   handleNewChat().then(() => {
     inputText.value = prompt
@@ -385,8 +509,14 @@ function handleQuickPrompt(prompt: string) {
 async function handleSend() {
   const text = inputText.value.trim()
   if (!text || loading.value) return
-  inputText.value = ''
 
+  // 处理 / 命令
+  if (text.startsWith('/')) {
+    handleCommand(text)
+    return
+  }
+
+  inputText.value = ''
   try {
     await chatStore.sendMessage(text)
   } catch (err: any) {
@@ -398,6 +528,54 @@ async function handleSend() {
   }
 }
 
+function handleCommand(cmd: string) {
+  inputText.value = ''
+  switch (cmd) {
+    case '/help':
+      ElMessageBox.alert(
+        '可用命令：<br>/help - 显示帮助<br>/clear - 清空当前对话<br>/tools - 查看可用工具',
+        '帮助',
+        { dangerouslyUseHTMLString: true }
+      )
+      break
+    case '/clear':
+      handleClearChat()
+      break
+    case '/tools':
+      if (toolInfos.value.length > 0) {
+        const toolList = toolInfos.value.map(t => `<b>${t.name}</b>: ${t.description}`).join('<br>')
+        ElMessageBox.alert(toolList, '可用工具', { dangerouslyUseHTMLString: true })
+      } else {
+        ElMessage.info('暂无可用的 Agent 工具')
+      }
+      break
+    default:
+      ElMessage.warning('未知命令。输入 /help 查看可用命令')
+  }
+}
+
+function handleStop() {
+  chatStore.stopStreaming()
+}
+
+async function handleClearChat() {
+  try {
+    await ElMessageBox.confirm('确定清空当前对话吗？', '提示', {
+      type: 'warning', confirmButtonText: '确定', cancelButtonText: '取消'
+    })
+    messages.value = []
+    ElMessage.success('已清空')
+  } catch { /* 取消 */ }
+}
+
+function handleInputChange() {
+  // 字符计数用
+}
+
+function handleModelChange(val: string) {
+  ElMessage.success(val === 'auto' ? '已切换为自动选择模型' : `已切换模型: ${val}`)
+}
+
 async function handleLoadMore() {
   await chatStore.loadMoreMessages()
 }
@@ -405,9 +583,7 @@ async function handleLoadMore() {
 async function handleLogout() {
   try {
     await ElMessageBox.confirm('确定退出登录吗？', '提示', {
-      type: 'warning',
-      confirmButtonText: '确定',
-      cancelButtonText: '取消'
+      type: 'warning', confirmButtonText: '确定', cancelButtonText: '取消'
     })
     chatStore.clearStore()
     await authStore.logout()
@@ -417,38 +593,57 @@ async function handleLogout() {
 </script>
 
 <style lang="scss" scoped>
+// ---- 变量 ----
+$sidebar-width: 280px;
+$accent: #6366f1;
+$accent-light: #eef0ff;
+$border: #e8eaef;
+$bg-page: #f8f9fb;
+$text-1: #1f2937;
+$text-2: #6b7280;
+$text-3: #9ca3af;
+
+// ---- 容器 ----
 .agent-chat {
   height: 100vh;
   display: flex;
-  background: #f8f9fb;
+  background: $bg-page;
   overflow: hidden;
+  font-family: var(--font-sans, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif);
 }
 
 // ---- 左侧栏 ----
-
 .sidebar {
-  width: 280px;
+  width: $sidebar-width;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
   background: #fff;
-  border-right: 1px solid #e8eaef;
+  border-right: 1px solid $border;
+  transition: width 0.25s ease;
+
+  &.collapsed {
+    width: 0;
+    overflow: hidden;
+    border: none;
+  }
 }
 
 .sidebar-top {
   padding: 16px;
-  border-bottom: 1px solid #f0f1f5;
 }
 
 .sidebar-logo {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 10px;
   text-decoration: none;
-  margin-bottom: 12px;
+  margin-bottom: 14px;
 
   span {
     font-size: 20px;
     font-weight: 700;
-    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    background: linear-gradient(135deg, $accent, #8b5cf6);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
   }
@@ -459,64 +654,80 @@ async function handleLogout() {
   height: 40px;
   border-radius: 10px;
   font-size: 14px;
-  background: #6366f1;
-  border-color: #6366f1;
+  font-weight: 500;
+  background: $accent;
+  border-color: $accent;
 
-  &:hover {
-    background: #5558e6;
-    border-color: #5558e6;
-  }
+  &:hover { background: #5558e6; border-color: #5558e6; }
+}
+
+// 搜索
+.search-box {
+  padding: 0 12px 8px;
 }
 
 // 会话列表
-
 .conversation-list {
   flex: 1;
   overflow-y: auto;
-  padding: 8px;
+  padding: 4px 8px;
 }
 
 .conv-item {
   display: flex;
   align-items: center;
+  gap: 10px;
   padding: 10px 12px;
   border-radius: 10px;
   cursor: pointer;
-  position: relative;
   transition: all 0.15s;
-  gap: 8px;
 
   &:hover {
     background: #f3f4f6;
 
-    .conv-actions {
-      opacity: 1;
-    }
+    .conv-actions { opacity: 1; }
   }
 
   &.active {
-    background: #eef0ff;
+    background: $accent-light;
 
-    .conv-title {
-      color: #6366f1;
-    }
+    .conv-title { color: $accent; font-weight: 500; }
   }
 }
 
-.conv-title {
+.conv-icon {
+  font-size: 16px;
+  color: $text-3;
+  flex-shrink: 0;
+}
+
+.conv-info {
   flex: 1;
-  font-size: 14px;
-  color: #374151;
+  min-width: 0;
+}
+
+.conv-title {
+  font-size: 13px;
+  color: $text-1;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  min-width: 0;
+}
+
+.conv-meta {
+  display: flex;
+  gap: 8px;
+  margin-top: 2px;
 }
 
 .conv-time {
   font-size: 11px;
-  color: #9ca3af;
-  flex-shrink: 0;
+  color: $text-3;
+}
+
+.conv-count {
+  font-size: 11px;
+  color: $accent;
 }
 
 .conv-actions {
@@ -527,129 +738,224 @@ async function handleLogout() {
 
 .conv-more {
   display: flex;
-  padding: 2px;
+  padding: 3px;
   border-radius: 4px;
-  color: #9ca3af;
+  color: $text-3;
   cursor: pointer;
 
-  &:hover {
-    background: #e5e7eb;
-    color: #374151;
-  }
+  &:hover { background: #e5e7eb; color: $text-1; }
 }
 
-.danger-text {
-  color: #ef4444;
-}
+.danger-text { color: #ef4444; }
 
-.no-conversations {
-  text-align: center;
+// 空列表
+.empty-list {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   padding: 40px 20px;
-  color: #9ca3af;
+  color: $text-3;
+  text-align: center;
 
-  p { font-size: 14px; margin: 0 0 4px; }
-  span { font-size: 12px; }
+  p { font-size: 13px; margin: 12px 0 0; }
+
+  .empty-icon { opacity: 0.4; }
 }
 
-// 底部用户区
-
+// 底部
 .sidebar-bottom {
-  padding: 12px 16px;
+  padding: 10px 16px;
   border-top: 1px solid #f0f1f5;
+}
+
+.agent-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: $text-2;
+  margin-bottom: 10px;
+}
+
+.status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #22c55e;
+  box-shadow: 0 0 6px rgba(34, 197, 94, 0.4);
+}
+
+.tool-count {
+  margin-left: auto;
+  color: $accent;
 }
 
 .user-area {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
 .user-name {
   flex: 1;
-  font-size: 14px;
-  color: #374151;
+  font-size: 13px;
+  color: $text-1;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .logout-icon {
-  color: #9ca3af;
+  color: $text-3;
   cursor: pointer;
-  font-size: 18px;
+  font-size: 16px;
 
   &:hover { color: #ef4444; }
 }
 
-// ---- 右侧主区域 ----
-
+// ---- 主区域 ----
 .main-area {
   flex: 1;
   display: flex;
   flex-direction: column;
   min-width: 0;
+  position: relative;
 }
 
-// 欢迎页
-
+// ---- 欢迎页 ----
 .welcome {
   flex: 1;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 40px;
+  position: relative;
+  overflow: hidden;
+}
 
-  h1 {
-    font-size: 26px;
-    font-weight: 600;
-    color: #1f2937;
-    margin: 20px 0 8px;
-  }
+.welcome-bg {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 60% 50% at 50% 40%, rgba(99, 102, 241, 0.04), transparent),
+    radial-gradient(ellipse 80% 60% at 50% 60%, rgba(139, 92, 246, 0.03), transparent);
+  pointer-events: none;
+}
+
+.welcome-content {
+  position: relative;
+  text-align: center;
+  max-width: 560px;
+  padding: 40px 24px;
+}
+
+.welcome-icon {
+  margin-bottom: 24px;
+  animation: float 3s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+.welcome-content h1 {
+  font-size: 26px;
+  font-weight: 600;
+  color: $text-1;
+  margin: 0 0 8px;
 }
 
 .welcome-sub {
-  color: #9ca3af;
+  color: $text-2;
   font-size: 15px;
   margin: 0 0 36px;
+  line-height: 1.6;
 }
 
+// 快捷提示
 .quick-prompts {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 12px;
+  gap: 10px;
   max-width: 520px;
-  width: 100%;
+  margin: 0 auto;
 }
 
 .quick-prompt {
-  padding: 14px 18px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
   border: 1px solid #e5e7eb;
-  border-radius: 12px;
-  font-size: 14px;
+  border-radius: 14px;
+  font-size: 13px;
   color: #4b5563;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: all 0.2s;
   background: #fff;
+  text-align: left;
 
   &:hover {
-    border-color: #6366f1;
-    color: #6366f1;
-    box-shadow: 0 2px 12px rgba(99, 102, 241, 0.1);
+    border-color: $accent;
+    color: $accent;
+    box-shadow: 0 4px 16px rgba(99, 102, 241, 0.08);
+    transform: translateY(-1px);
   }
 }
 
-// 对话顶栏
+.prompt-icon {
+  font-size: 18px;
+  flex-shrink: 0;
+}
 
+.prompt-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+// 能力条
+.capability-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 32px;
+  flex-wrap: wrap;
+}
+
+.cap-title {
+  font-size: 12px;
+  color: $text-3;
+}
+
+.cap-tags {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.cap-tag {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  background: $accent-light;
+  color: $accent;
+}
+
+// ---- 对话顶栏 ----
 .chat-header {
   height: 52px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 20px;
-  background: #fff;
-  border-bottom: 1px solid #e8eaef;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid $border;
   flex-shrink: 0;
+  z-index: 10;
 }
 
 .header-left {
@@ -662,36 +968,42 @@ async function handleLogout() {
 .header-title {
   font-size: 15px;
   font-weight: 500;
-  color: #1f2937;
+  color: $text-1;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.model-select {
-  width: 170px;
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
-// 消息区域
+.model-select { width: 160px; }
 
+.clear-btn { color: $text-3; }
+
+// ---- 消息区域 ----
 .messages-container {
   flex: 1;
   overflow-y: auto;
   padding: 24px;
+  scroll-behavior: smooth;
 }
 
 .load-more {
   text-align: center;
-  padding: 12px;
+  padding: 8px 0 16px;
 }
 
 // 消息行
-
 .message-row {
   display: flex;
   gap: 10px;
-  margin-bottom: 24px;
-  max-width: 800px;
+  margin-bottom: 28px;
+  max-width: 820px;
+  animation: fadeInUp 0.3s ease;
 
   &.user {
     margin-left: auto;
@@ -703,10 +1015,14 @@ async function handleLogout() {
   }
 }
 
-// 用户消息
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
 
+// 用户消息
 .user-bubble {
-  background: #6366f1;
+  background: linear-gradient(135deg, $accent, #7c3aed);
   color: #fff;
   padding: 10px 16px;
   border-radius: 14px 4px 14px 14px;
@@ -714,14 +1030,23 @@ async function handleLogout() {
   line-height: 1.6;
   max-width: 70%;
   word-break: break-word;
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.2);
+}
+
+.bubble-time {
+  display: block;
+  font-size: 10px;
+  opacity: 0.7;
+  margin-top: 4px;
+  text-align: right;
 }
 
 .msg-avatar {
   flex-shrink: 0;
+  align-self: flex-end;
 }
 
 // Agent 消息
-
 .agent-avatar {
   flex-shrink: 0;
 }
@@ -732,116 +1057,123 @@ async function handleLogout() {
 }
 
 // 思考卡片
-
 .thinking-card {
   background: #fff;
-  border: 1px solid #e5e7eb;
-  border-radius: 12px;
+  border: 1px solid $border;
+  border-left: 3px solid $accent;
+  border-radius: 0 10px 10px 0;
   margin-bottom: 8px;
   overflow: hidden;
+  transition: box-shadow 0.2s;
+
+  &:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
 }
 
 .thinking-header {
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: space-between;
   padding: 10px 14px;
   cursor: pointer;
-  font-size: 13px;
-  color: #6b7280;
   user-select: none;
-  transition: background 0.15s;
-
-  &:hover { background: #f9fafb; }
 }
 
-.thinking-icon {
-  font-size: 16px;
-  color: #6366f1;
-
-  &.spinning {
-    animation: spin 1s linear infinite;
-  }
-}
-
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
-.expand-icon {
-  margin-left: auto;
-  font-size: 12px;
-  transition: transform 0.2s;
-
-  &.expanded {
-    transform: rotate(180deg);
-  }
-}
-
-.thinking-body {
-  padding: 0 14px 12px;
-  border-top: 1px solid #f3f4f6;
-}
-
-.thinking-step {
-  display: flex;
-  gap: 10px;
-  padding: 8px 0;
-  align-items: flex-start;
-
-  & + & {
-    border-top: 1px solid #f9fafb;
-  }
-}
-
-.step-num {
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  background: #eef0ff;
-  color: #6366f1;
-  font-size: 11px;
+.thinking-header-left {
   display: flex;
   align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  margin-top: 1px;
+  gap: 8px;
 }
 
-.step-dot {
+.thinking-dot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #6366f1;
+  background: $accent;
   flex-shrink: 0;
-  margin: 6px;
-  animation: pulse 1.5s ease-in-out infinite;
+
+  &.active {
+    animation: pulse 1.2s ease-in-out infinite;
+  }
 }
 
 @keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.3; }
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(1.3); }
+}
+
+.thinking-label {
+  font-size: 13px;
+  color: $text-2;
+  font-weight: 500;
+}
+
+.thinking-count {
+  font-size: 11px;
+  color: $text-3;
+  background: #f3f4f6;
+  padding: 1px 8px;
+  border-radius: 10px;
+}
+
+.expand-icon {
+  font-size: 12px;
+  color: $text-3;
+  transition: transform 0.2s;
+
+  &.expanded { transform: rotate(180deg); }
+}
+
+.thinking-body {
+  padding: 12px 14px;
+  border-top: 1px solid #f3f4f6;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.thinking-text {
+  font-size: 13px;
+  color: #4b5563;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.thinking-pending {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #f3f4f6;
+}
+
+.step-loading {
+  width: 14px;
+  height: 14px;
+  border: 2px solid #e5e7eb;
+  border-top-color: $accent;
+  border-radius: 50%;
+  flex-shrink: 0;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 
 .step-text {
   font-size: 13px;
   color: #4b5563;
   line-height: 1.5;
-  word-break: break-word;
 
-  &.dim {
-    color: #9ca3af;
-    font-style: italic;
-  }
+  &.dim { color: $text-3; font-style: italic; }
 }
 
 // 工具调用卡片
-
 .tool-card {
-  background: #fffbeb;
-  border: 1px solid #fde68a;
-  border-radius: 10px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 12px;
   margin-bottom: 8px;
   overflow: hidden;
 }
@@ -850,57 +1182,84 @@ async function handleLogout() {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 12px;
+  padding: 10px 14px;
+  border-bottom: 1px solid #dcfce7;
+}
+
+.tool-icon {
+  color: #16a34a;
+  font-size: 16px;
+}
+
+.tool-name {
   font-size: 13px;
-  color: #92400e;
-  background: #fffbeb;
+  font-weight: 500;
+  color: #166534;
+}
+
+.tool-badge {
+  margin-left: auto;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 10px;
+  background: #dcfce7;
+  color: #16a34a;
 }
 
 .tool-body {
-  padding: 0 12px 10px;
+  padding: 10px 14px;
 }
 
 .tool-section {
-  margin-top: 8px;
+  & + & { margin-top: 8px; }
 }
 
 .tool-label {
   display: block;
-  font-size: 11px;
-  color: #a16207;
+  font-size: 10px;
+  color: #15803d;
   margin-bottom: 4px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  font-weight: 500;
 }
 
 .tool-code {
   display: block;
-  background: #fffbeb;
-  border: 1px solid #fde68a;
-  border-radius: 6px;
+  background: #fff;
+  border: 1px solid #dcfce7;
+  border-radius: 8px;
   padding: 8px 10px;
   font-size: 12px;
-  color: #78350f;
+  color: #14532d;
   white-space: pre-wrap;
   word-break: break-all;
   max-height: 120px;
   overflow-y: auto;
+  font-family: var(--font-mono, monospace);
 }
 
 // Agent 最终回复
-
 .agent-bubble {
   background: #fff;
-  border: 1px solid #e5e7eb;
+  border: 1px solid $border;
   border-radius: 4px 14px 14px 14px;
-  padding: 14px 18px;
+  padding: 16px 20px;
   font-size: 14px;
-  line-height: 1.7;
-  color: #1f2937;
+  line-height: 1.75;
+  color: $text-1;
+  transition: border-color 0.2s;
+
+  &.streaming { border-color: $accent; }
 }
 
-// 错误提示
+.agent-time {
+  display: block;
+  margin-top: 8px;
+  text-align: left;
+}
 
+// 错误
 .agent-error {
   display: flex;
   align-items: center;
@@ -913,25 +1272,25 @@ async function handleLogout() {
   font-size: 13px;
 }
 
-// 输入区
-
+// ---- 输入区 ----
 .input-area {
   padding: 16px 24px 24px;
   flex-shrink: 0;
 }
 
 .input-box {
-  max-width: 800px;
+  max-width: 820px;
   margin: 0 auto;
   background: #fff;
-  border: 1px solid #e5e7eb;
+  border: 1px solid $border;
   border-radius: 16px;
-  padding: 8px;
-  transition: box-shadow 0.2s;
+  padding: 6px 6px 4px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+  transition: border-color 0.2s, box-shadow 0.2s;
 
   &:focus-within {
-    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
-    border-color: #6366f1;
+    border-color: $accent;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.08);
   }
 
   :deep(.el-textarea__inner) {
@@ -942,6 +1301,7 @@ async function handleLogout() {
     line-height: 1.6;
     resize: none;
     background: transparent;
+    min-height: 24px;
   }
 }
 
@@ -949,11 +1309,52 @@ async function handleLogout() {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 6px 8px 4px;
+  padding: 4px 8px;
+}
+
+.input-hints {
+  font-size: 11px;
+  color: $text-3;
+}
+
+.hint-cmd {
+  display: inline-block;
+  padding: 2px 6px;
+  margin: 0 2px;
+  border-radius: 4px;
+  background: #f3f4f6;
+  cursor: pointer;
+  font-family: var(--font-mono, monospace);
+  color: $accent;
+  font-size: 11px;
+
+  &:hover { background: $accent-light; }
+}
+
+.input-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.char-count {
+  font-size: 11px;
+  color: #f59e0b;
+}
+
+// ---- 过渡 ----
+.collapse-enter-active,
+.collapse-leave-active {
+  transition: all 0.2s ease;
+}
+
+.collapse-enter-from,
+.collapse-leave-to {
+  opacity: 0;
+  max-height: 0;
 }
 
 // ---- 响应式 ----
-
 @media (max-width: 768px) {
   .sidebar {
     position: fixed;
@@ -961,26 +1362,25 @@ async function handleLogout() {
     top: 0;
     bottom: 0;
     z-index: 200;
-    width: 85%;
-    max-width: 280px;
-    box-shadow: 4px 0 24px rgba(0,0,0,0.1);
+    box-shadow: 4px 0 24px rgba(0,0,0,0.08);
 
-    &:not(.open) {
-      display: none;
-    }
+    &.collapsed { display: none; }
   }
+
+  .chat-header { padding: 0 12px; }
 
   .quick-prompts {
     grid-template-columns: 1fr;
+  }
+
+  .messages-container { padding: 16px; }
+
+  .input-area { padding: 12px 16px; }
+
+  .message-row {
     max-width: 100%;
-  }
 
-  .messages-container {
-    padding: 16px;
-  }
-
-  .input-area {
-    padding: 12px 16px;
+    &.user .user-bubble { max-width: 85%; }
   }
 }
 </style>

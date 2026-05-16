@@ -18,7 +18,7 @@ public class ModelRouter {
             Pattern.compile("写.*文章|写.*故事|创作|翻译|改写|润色|总结|提炼|汇报|邮件");
     private static final Pattern MATH_PATTERN =
             Pattern.compile("计算|等于|多少|换算|公式|推导|证明|单位");
-    private static final String DEFAULT_MODEL = "deepseek-chat";
+    private static final String DEFAULT_MODEL = "deepseek-v4-flash";
 
     private final Map<String, ? extends Model> modelMap;
 
@@ -40,10 +40,10 @@ public class ModelRouter {
             return DEFAULT_MODEL;
         }
         if (MATH_PATTERN.matcher(userMessage).find()) {
-            return "deepseek-chat";
+            return "deepseek-v4-pro";
         }
         if (CODE_PATTERN.matcher(userMessage).find()) {
-            return "deepseek-chat";
+            return "deepseek-v4-pro";
         }
         if (CREATIVE_PATTERN.matcher(userMessage).find()) {
             return "doubao-chat";

@@ -25,6 +25,9 @@ project_highlights.md
 *.iws
 *.ipr
 
+# 长期记忆本地文件
+data/memory/
+
 # 敏感配置文件（不应提交真实密码）
 application.yml
 docker-compose.yml

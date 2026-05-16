@@ -30,7 +30,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     @Override
     protected boolean shouldNotFilterAsyncDispatch() {
-        return false;
+        return true;
     }
 
     @Override
@@ -73,6 +73,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     SecurityContextHolder.getContext().setAuthentication(authentication);
                     log.debug("Authentication set for user: {}", username);
                     filterChain.doFilter(request, response);
+                } else if (username != null) {
+                    // 认证已存在（如 SSE 异步分发等场景），直接放行
+                    filterChain.doFilter(request, response);
                 } else {
                     log.warn("无效的 token 或用户名为空");
                     sendUnauthorizedError(response, "无效的 token 或用户名为空");
@@ -109,6 +112,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     }
 
     private void sendUnauthorizedError(HttpServletResponse response, String message) throws IOException {
+        if (response.isCommitted()) {
+            log.warn("响应已提交，跳过写错误信息: {}", message);
+            return;
+        }
         response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
         response.setContentType("application/json;charset=UTF-8");
 
