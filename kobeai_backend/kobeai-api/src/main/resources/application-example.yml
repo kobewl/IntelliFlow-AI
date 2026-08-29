@@ -183,3 +183,12 @@ knife4j:
 app:
   upload:
     dir: uploads
+
+  # ========== AI 平台配置 ==========
+  # OrcaRouter —— OpenAI 兼容 LLM 网关（可选 Provider）
+  # 端点 https://api.orcarouter.ai/v1 ，模型 orcarouter/auto（网关自适应路由）
+  # 注册后填入 api-key 即启用；不配置则不注册该平台
+  ai:
+    orcarouter:
+      base-url: https://api.orcarouter.ai
+      api-key:${AI_API_KEY}

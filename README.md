@@ -209,3 +209,12 @@ public interface AIPlatformService {
   <p>如果你觉得有帮助,欢迎点亮 ⭐️ 给作者鼓励!</p>
   <p>Made with ❤️ by <a href="https://github.com/kobewl">@kobewl</a></p>
 </div>
+
+### 快速验证 OrcaRouter 连通性
+
+```bash
+curl https://api.orcarouter.ai/v1/chat/completions \
+  -H "Authorization: Bearer $ORCA_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"model": "orcarouter/auto", "messages": [{"role": "user", "content": "你好"}]}'
+```
