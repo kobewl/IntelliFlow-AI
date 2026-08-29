@@ -35,6 +35,12 @@ public class AgentScopeConfig {
     @Value("${app.ai.doubao.base-url:https://ark.cn-beijing.volces.com/api/v3}")
     private String doubaoBaseUrl;
 
+    @Value("${app.ai.orcarouter.api-key:}")
+    private String orcarouterApiKey;
+
+    @Value("${app.ai.orcarouter.base-url:https://api.orcarouter.ai}")
+    private String orcarouterBaseUrl;
+
     @Value("${app.memory.dir:data/memory}")
     private String memoryDirPath;
 
@@ -64,6 +70,17 @@ public class AgentScopeConfig {
                     .baseUrl(doubaoBaseUrl)
                     .build());
             log.info("AgentScope: 已注册豆包模型 [doubao-chat]");
+        }
+
+        if (orcarouterApiKey != null && !orcarouterApiKey.isEmpty()) {
+            // OrcaRouter（OpenAI 兼容 LLM 网关）：orcarouter/auto 为自适应路由模型，
+            // 由网关按提示词自动选择最合适的底层模型，支持故障转移
+            models.put("orcarouter-auto", OpenAIChatModel.builder()
+                    .apiKey(orcarouterApiKey)
+                    .modelName("orcarouter/auto")
+                    .baseUrl(orcarouterBaseUrl + "/v1")
+                    .build());
+            log.info("AgentScope: 已注册 OrcaRouter 模型 [orcarouter-auto]");
         }
 
         return models;

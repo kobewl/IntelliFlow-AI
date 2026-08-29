@@ -8,6 +8,7 @@
   <img src="https://img.shields.io/badge/AgentScope-1.0.12-8b5cf6" alt="AgentScope"/>
   <img src="https://img.shields.io/badge/AG--UI-协议-0078d4" alt="AG-UI"/>
   <img src="https://img.shields.io/badge/License-MIT-yellow" alt="License"/>
+  <a href="https://www.orcarouter.ai/ref/ref_bdd09e1fa977b44ced76"><img src="https://img.shields.io/badge/Powered_by-OrcaRouter-2563eb" alt="Powered by OrcaRouter"/></a>
 
   <h3>ReAct 智能体 · 工具调用 · 双层记忆 · 流式对话</h3>
   <p>一个面向学习与中小团队场景的全栈 AI 智能体平台</p>
@@ -29,7 +30,7 @@ IntelliFlow AI 是一个基于 **AgentScope Java** 框架的全栈 AI 智能体�
 | **双层记忆** | ✅ | 会话内短期记忆（InMemory）+ 本地 Markdown 长期记忆，支持自动摘要 |
 | **对话分支** | ✅ | 从任意消息分叉出平行对话分支，随时切换 |
 | **Agent 工作台** | ✅ | 思考/工具调用步骤以时间线形式可视化 |
-| **多模型接入与路由** | ✅ | DeepSeek / 豆包，按问题类型自动路由模型（数学/编程/创作） |
+| **多模型接入与路由** | ✅ | DeepSeek / 豆包 / OrcaRouter 网关（可选），按问题类型自动路由模型（数学/编程/创作） |
 | **知识库 RAG** | ✅ 基础版 | DashScope 向量检索增强回答（内存向量库，产品化进行中） |
 | **用户体系** | ✅ | 注册/登录、JWT 鉴权、BCrypt 密码、邮件验证码 |
 | **系统通知** | ✅ | WebSocket (STOMP) 实时推送，管理端可创建/撤回 |
@@ -106,6 +107,22 @@ pnpm lint         # ESLint 检查
 pnpm typecheck    # TypeScript 类型检查
 ```
 
+### 可选 Provider：OrcaRouter
+
+除了直连 DeepSeek / 豆包，项目也支持通过 [OrcaRouter](https://www.orcarouter.ai/ref/ref_bdd09e1fa977b44ced76) 接入模型 —— 一个 OpenAI 兼容的 LLM API 网关，提供自适应路由、自动故障转移，并按供应商原价计费（零加价）。
+
+在 `application.yml` 中配置（不配置则不启用）：
+
+```yaml
+app:
+  ai:
+    orcarouter:
+      base-url: https://api.orcarouter.ai
+      api-key:${AI_API_KEY}# 在 OrcaRouter 注册后获取
+```
+
+配置后 Agent 的可用模型会新增 **`orcarouter-auto`**（对应网关的 `orcarouter/auto` 自适应路由模型，由网关按提示词自动选择最合适的底层模型）。
+
 ## 项目结构
 
 ```
@@ -150,6 +167,7 @@ Agent 的长期记忆以本地 Markdown 文件持久化在 `data/memory/`（已�
 - Spring Boot **3.5.11** · Spring Security · Spring Data JPA
 - [AgentScope Java](https://java.agentscope.io) **1.0.12**（ReActAgent / Toolkit / AG-UI Adapter）
 - LangChain4j · DeepSeek API · 豆包 API · DashScope Embedding
+- [OrcaRouter](https://www.orcarouter.ai/ref/ref_bdd09e1fa977b44ced76) · 可选 LLM 网关 Provider（OpenAI 兼容）
 - MySQL 8.0 · Redis · RabbitMQ · MinIO
 
 **前端**

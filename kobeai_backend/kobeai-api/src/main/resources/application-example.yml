@@ -184,6 +184,23 @@ app:
   upload:
     dir: uploads
 
+  # ========== AgentScope AI 模型配置 ==========
+  # 各 api-key 均为选填：不配置的平台不会注册对应模型
+  ai:
+    # DeepSeek（默认对话模型）
+    deepseek:
+      api-key:${AI_API_KEY}
+      base-url: https://api.deepseek.com
+    # 豆包（火山方舟）
+    doubao:
+      api-key:${AI_API_KEY}
+      base-url: https://ark.cn-beijing.volces.com/api/v3
+    # OrcaRouter —— OpenAI 兼容 LLM 网关（可选 Provider）
+    # 注册后填入 api-key，即可使用 orcarouter-auto 自适应路由模型
+    orcarouter:
+      api-key:${AI_API_KEY}
+      base-url: https://api.orcarouter.ai
+
 # Agent 配置（AgentScope 智能体）
 agent:
   session:
