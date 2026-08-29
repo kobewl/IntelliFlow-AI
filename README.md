@@ -7,6 +7,7 @@
   <img src="https://img.shields.io/badge/Java-17-orange?logo=openjdk" alt="Java 17"/>
   <img src="https://img.shields.io/badge/DeepSeek-API-0078d4?logo=openai" alt="DeepSeek"/>
   <img src="https://img.shields.io/badge/License-MIT-yellow" alt="License"/>
+  <a href="https://www.orcarouter.ai/ref/ref_bdd09e1fa977b44ced76"><img src="https://img.shields.io/badge/Powered_by-OrcaRouter-2563eb" alt="Powered by OrcaRouter"/></a>
   <img src="https://img.shields.io/github/stars/kobewl/IntelliFlow-AI?style=social" alt="Stars"/>
 
   <h3>多模型接入 · 流式对话 · 全栈开箱即用</h3>
@@ -17,7 +18,7 @@
 
 ## 项目亮点
 
-- **多模型接入** — 已集成 DeepSeek、豆包(DouBao)等大模型 API,统一的 Provider 抽象方便后续扩展
+- **多模型接入** — 已集成 DeepSeek、豆包(DouBao)等大模型 API，并通过 [OrcaRouter](https://www.orcarouter.ai/ref/ref_bdd09e1fa977b44ced76) 网关（OpenAI 兼容，base_url `https://api.orcarouter.ai/v1`）支持更多模型，统一的 Provider 抽象方便后续扩展
 - **流式对话** — SSE 流式输出,Markdown / 代码高亮渲染,体验接近 ChatGPT
 - **全栈开箱即用** — 前后端分离架构,自带用户体系、JWT 鉴权、对话历史、文件上传(MinIO)
 - **现代前端** — Vue 3 Composition API + TypeScript + Vite,组件化清晰
@@ -106,6 +107,22 @@ npm run dev
 
 访问 http://localhost:5173
 
+### 可选 Provider：OrcaRouter
+
+除了直连 DeepSeek / 豆包，项目也支持通过 [OrcaRouter](https://www.orcarouter.ai/ref/ref_bdd09e1fa977b44ced76) 接入模型 —— 一个 OpenAI 兼容的 LLM API 网关，提供自适应路由、自动故障转移，并按供应商原价计费（零加价）。
+
+在 `application.yml` 中配置（不配置则不启用）：
+
+```yaml
+app:
+  ai:
+    orcarouter:
+      base-url: https://api.orcarouter.ai
+      api-key:${AI_API_KEY}# 在 OrcaRouter 注册后获取
+```
+
+配置后 Agent 的可用模型会新增 **`orcarouter-auto`**（对应网关的 `orcarouter/auto` 自适应路由模型）。完整代码接入见 `feature/agentscope-integration` 分支。
+
 ## 项目结构
 
 ```
@@ -160,6 +177,7 @@ public interface AIPlatformService {
 - [AgentScope Java](https://java.agentscope.io) **1.0.12** (Agent 框架)
 - LangChain4j **1.0.0-beta3** (大模型集成)
 - DeepSeek API · 豆包 API
+- [OrcaRouter](https://www.orcarouter.ai/ref/ref_bdd09e1fa977b44ced76) · 可选 LLM 网关 Provider（OpenAI 兼容，模型 `orcarouter/auto`）
 - MySQL **8.0** · Redis · RabbitMQ · MinIO
 
 **前端**
