@@ -1,5 +1,7 @@
-interface Window {
-  __copyCode: (code: string) => Promise<void>;
+declare global {
+  interface Window {
+    __copyCode: (code: string) => Promise<void>
+  }
 }
 
-export {}; 
+export {}

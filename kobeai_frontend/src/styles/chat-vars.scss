@@ -1,0 +1,10 @@
+// Chat 模块共享 SCSS 变量
+// 各聊天子组件通过 @use 引入，保证配色/尺寸统一
+$sidebar-width: 280px;
+$accent: #6366f1;
+$accent-light: #eef0ff;
+$border: #e8eaef;
+$bg-page: #f8f9fb;
+$text-1: #1f2937;
+$text-2: #6b7280;
+$text-3: #9ca3af;

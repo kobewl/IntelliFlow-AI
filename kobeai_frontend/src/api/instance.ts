@@ -1,7 +1,6 @@
 import axios from 'axios'
 import type { AxiosResponse } from 'axios'
-import type { ApiResponse } from './types'
-import { getAuthToken, clearAuth, shouldRefreshToken } from './auth'
+import { getAuthToken, clearAuth } from './auth'
 
 // 创建统一的axios实例
 export const apiInstance = axios.create({

@@ -120,7 +120,7 @@ const handleDownload = async () => {
     link.click()
     document.body.removeChild(link)
     URL.revokeObjectURL(url)
-  } catch (error) {
+  } catch {
     ElMessage.error('下载失败')
   }
 }
@@ -129,7 +129,6 @@ defineOptions({
   name: 'FileMessage'
 })
 
-export default {}
 </script>
 
 <style scoped>

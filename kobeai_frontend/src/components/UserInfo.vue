@@ -297,7 +297,7 @@ export default {
 </script>
 
 <script setup lang="ts">
-import { ref, nextTick, computed, watch } from 'vue'
+import { ref, nextTick, computed } from 'vue'
 import { 
   UserFilled, EditPen, Lock, User, Message, 
   Timer, Camera, Key, Iphone, Male, Document
@@ -305,7 +305,7 @@ import {
 import { ElMessage } from 'element-plus'
 import { storeToRefs } from 'pinia'
 import { useAuthStore } from '../stores/auth'
-import { formatTime, formatRegistrationTime } from '../utils/time'
+import { formatRegistrationTime } from '../utils/time'
 import type { FormInstance } from 'element-plus'
 import { UserRole, Gender } from '../types/user'
 import { authApi } from '../api/auth'
@@ -372,7 +372,7 @@ const passwordRules = {
   confirmPassword: [
     { required: true, message: '请确认新密码', trigger: 'blur' },
     {
-      validator: (rule: any, value: string, callback: Function) => {
+      validator: (rule: any, value: string, callback: (error?: Error) => void) => {
         if (value !== passwordForm.value.newPassword) {
           callback(new Error('两次输入的密码不一致'))
         } else {
@@ -409,36 +409,6 @@ const getRoleText = computed(() => {
   if (isSVIP.value) return 'SVIP'
   if (isVIP.value) return 'VIP'
   return '普通用户'
-})
-
-// 用户角色计算属性
-const userRoleText = computed(() => {
-  if (!user.value) return ''
-  switch (user.value.userRole) {
-    case UserRole.VIP:
-      return 'VIP会员'
-    case UserRole.SVIP:
-      return 'SVIP会员'
-    case UserRole.ADMIN:
-      return '管理员'
-    default:
-      return '普通用户'
-  }
-})
-
-// 会员状态计算属性
-const membershipStatus = computed(() => {
-  if (!user.value) return ''
-  if (user.value.userRole === UserRole.NORMAL) {
-    return '非会员'
-  }
-  if (user.value.userRole === UserRole.ADMIN) {
-    return '永久'
-  }
-  if (user.value.membershipEndTime) {
-    return `有效期至 ${formatTime(user.value.membershipEndTime)}`
-  }
-  return '未知'
 })
 
 // 性别文本

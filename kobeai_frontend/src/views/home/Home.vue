@@ -71,7 +71,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import { ArrowRight, ArrowDown, ArrowUp, ChatRound, Timer, Lock, Connection } from '@element-plus/icons-vue'
+import { ArrowRight, ArrowDown, ArrowUp, ChatRound } from '@element-plus/icons-vue'
 
 const currentPage = ref(1)
 const isTransitioning = ref(false)

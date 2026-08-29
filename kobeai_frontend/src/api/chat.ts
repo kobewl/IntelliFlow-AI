@@ -47,6 +47,15 @@ export interface FileMessage extends ChatMessage {
   }
 }
 
+/** 会话列表分页返回结构（对应后端 ConversationController.getConversations） */
+export interface ConversationPage {
+  list: Conversation[]
+  total: number
+  page: number
+  size: number
+  hasMore: boolean
+}
+
 // ---- Axios 实例 ----
 
 const apiInstance = axios.create({
@@ -266,8 +275,8 @@ export const agentApi = {
 // ---- REST API ----
 
 export const chatApi = {
-  async getConversations(): Promise<ApiResponse<Conversation[]>> {
-    return apiInstance.get('/chat/conversations')
+  async getConversations(params?: { page?: number; size?: number }): Promise<ApiResponse<ConversationPage>> {
+    return apiInstance.get('/chat/conversations', { params })
   },
 
   async createConversation(): Promise<ApiResponse<Conversation>> {

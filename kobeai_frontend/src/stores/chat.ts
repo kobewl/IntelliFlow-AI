@@ -3,7 +3,6 @@ import { ref, computed, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { chatApi, streamAgentChat } from '../api/chat'
 import type { ChatMessage, Conversation, ToolCall } from '../api/chat'
-import { useAuthStore } from './auth'
 
 // ---- Agent 消息类型 ----
 
@@ -31,6 +30,8 @@ export interface AgentMessage {
   steps: WorkbenchStep[]
   isStreaming: boolean
   isThinking: boolean
+  // 思考卡片是否展开（模板中动态添加，非持久化字段）
+  _thinkingOpen?: boolean
   error?: string
 }
 
@@ -66,6 +67,10 @@ export const useChatStore = defineStore('chat', () => {
   const messages = ref<AgentMessage[]>([])
   const loading = ref(false)
   const loadingMore = ref(false)
+  // 会话列表分页状态
+  const hasMoreConversations = ref(false)
+  const conversationsPage = ref(0)
+  const loadingMoreConversations = ref(false)
   let abortController: (() => void) | null = null
 
   // 从 localStorage 恢复
@@ -97,12 +102,16 @@ export const useChatStore = defineStore('chat', () => {
 
   // ---- 会话 CRUD ----
 
+  const CONVERSATION_PAGE_SIZE = 50
+
   async function loadConversations() {
     try {
       loading.value = true
-      const res = await chatApi.getConversations()
+      const res = await chatApi.getConversations({ page: 0, size: CONVERSATION_PAGE_SIZE })
       if (res.code === 200) {
-        conversations.value = res.data
+        conversations.value = res.data.list || []
+        conversationsPage.value = res.data.page ?? 0
+        hasMoreConversations.value = !!res.data.hasMore
         if (conversations.value.length > 0 && !currentConversationId.value) {
           currentConversationId.value = conversations.value[0].id
         }
@@ -111,6 +120,27 @@ export const useChatStore = defineStore('chat', () => {
       ElMessage.error(err.message || '加载会话失败')
     } finally {
       loading.value = false
+    }
+  }
+
+  /** 加载下一页会话列表，追加到已有列表之后 */
+  async function loadMoreConversations() {
+    if (!hasMoreConversations.value || loadingMoreConversations.value) return
+    loadingMoreConversations.value = true
+    try {
+      const res = await chatApi.getConversations({
+        page: conversationsPage.value + 1,
+        size: CONVERSATION_PAGE_SIZE
+      })
+      if (res.code === 200) {
+        conversations.value = [...conversations.value, ...(res.data.list || [])]
+        conversationsPage.value = res.data.page ?? conversationsPage.value
+        hasMoreConversations.value = !!res.data.hasMore
+      }
+    } catch (err: any) {
+      ElMessage.error(err.message || '加载更多会话失败')
+    } finally {
+      loadingMoreConversations.value = false
     }
   }
 
@@ -288,7 +318,6 @@ export const useChatStore = defineStore('chat', () => {
     }
     if (!currentConversationId.value) throw new Error('创建会话失败')
 
-    const authStore = useAuthStore()
 
     // 添加用户消息
     const userMsg: AgentMessage = {
@@ -366,7 +395,7 @@ export const useChatStore = defineStore('chat', () => {
               }
             }
           },
-          onToolCallEnd(toolCallId) {
+          onToolCallEnd(_toolCallId) {
             // 工具参数接收完毕，等待执行结果
           },
           onToolResult(toolCallId, content) {
@@ -469,6 +498,9 @@ export const useChatStore = defineStore('chat', () => {
     saveBranches,
     // 会话
     loadConversations,
+    loadMoreConversations,
+    hasMoreConversations,
+    loadingMoreConversations,
     createConversation,
     switchConversation,
     renameConversation,

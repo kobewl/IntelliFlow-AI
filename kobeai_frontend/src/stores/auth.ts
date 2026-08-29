@@ -1,9 +1,8 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
 import type { User } from '../types/user'
-import { UserRole, isAdmin, isVIP, isSVIP } from '../types/user'
+import { isAdmin, isVIP, isSVIP } from '../types/user'
 import { authApi, isTokenValid, getAuthToken, clearAuth } from '../api/auth'
 
 export const useAuthStore = defineStore('auth', () => {

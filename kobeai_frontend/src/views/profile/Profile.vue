@@ -188,7 +188,7 @@ import { ElMessage } from 'element-plus'
 import dayjs from 'dayjs'
 import { ChatDotRound, Avatar, Bell, UserFilled } from '@element-plus/icons-vue'
 import type { FormInstance } from 'element-plus'
-import { UserRole, Gender, type User, isAdmin, isVIP, isSVIP } from '../../types/user'
+import { UserRole, Gender, isVIP, isSVIP } from '../../types/user'
 
 const router = useRouter()
 const authStore = useAuthStore()

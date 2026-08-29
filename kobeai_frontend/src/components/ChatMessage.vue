@@ -45,7 +45,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import { User, ChatRound } from '@element-plus/icons-vue'
+import { ChatRound } from '@element-plus/icons-vue'
 import MarkdownRenderer from './MarkdownRenderer.vue'
 import { MessageRole } from '../types/chat'
 import { storeToRefs } from 'pinia'
