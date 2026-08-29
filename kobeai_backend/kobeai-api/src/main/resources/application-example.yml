@@ -183,3 +183,11 @@ knife4j:
 app:
   upload:
     dir: uploads
+
+# Agent 配置（AgentScope 智能体）
+agent:
+  session:
+    # 会话空闲多久后自动回收（分钟），防止内存中会话无限增长
+    idle-ttl-minutes: 30
+    # 空闲会话扫描间隔（毫秒）
+    evict-interval-ms: 60000

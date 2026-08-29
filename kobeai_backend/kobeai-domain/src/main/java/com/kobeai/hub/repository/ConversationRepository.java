@@ -2,6 +2,8 @@ package com.kobeai.hub.repository;
 
 import com.kobeai.hub.model.Conversation;
 import com.kobeai.hub.model.User;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -15,4 +17,6 @@ public interface ConversationRepository extends JpaRepository<Conversation, Long
     Optional<Conversation> findFirstByUserOrderByCreatedAtDesc(User user);
 
     List<Conversation> findByUserOrderByCreatedAtDesc(User user);
+
+    Page<Conversation> findByUserOrderByCreatedAtDesc(User user, Pageable pageable);
 }

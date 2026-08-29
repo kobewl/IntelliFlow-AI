@@ -18,9 +18,12 @@ public class ConversationController {
     private final ConversationService conversationService;
 
     @GetMapping("/conversations")
-    @Operation(summary = "获取所有会话")
-    public ApiResponse<?> getConversations(@RequestHeader("Authorization") String authHeader) {
-        return conversationService.getConversations(authHeader);
+    @Operation(summary = "分页获取会话列表")
+    public ApiResponse<?> getConversations(
+            @RequestParam(defaultValue = "0") Integer page,
+            @RequestParam(defaultValue = "50") Integer size,
+            @RequestHeader("Authorization") String authHeader) {
+        return conversationService.getConversations(authHeader, page, size);
     }
 
     @GetMapping("/conversations/current")

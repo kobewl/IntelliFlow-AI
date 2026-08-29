@@ -3,7 +3,7 @@ package com.kobeai.hub.service;
 import com.kobeai.hub.dto.response.ApiResponse;
 
 public interface ConversationService {
-    ApiResponse<?> getConversations(String authHeader);
+    ApiResponse<?> getConversations(String authHeader, Integer page, Integer size);
     ApiResponse<?> getCurrentConversation(String authHeader);
     ApiResponse<?> getConversationById(Long id, String authHeader);
     ApiResponse<?> createConversation(String authHeader);

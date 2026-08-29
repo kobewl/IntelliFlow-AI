@@ -12,6 +12,8 @@ import io.agentscope.core.memory.LongTermMemoryMode;
 import io.agentscope.core.model.Model;
 import io.agentscope.core.tool.Toolkit;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 
@@ -20,6 +22,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 @Slf4j
 @Service
@@ -53,7 +56,12 @@ public class AgentService {
     private final Toolkit toolkit;
     private final LocalFileLongTermMemory longTermMemory;
     private final MemorySummarizer memorySummarizer;
-    private final Map<String, AgentSession> sessions = new ConcurrentHashMap<>();
+    // 包内可见：便于单元测试注入 mock 会话
+    final Map<String, AgentSession> sessions = new ConcurrentHashMap<>();
+
+    /** 会话空闲多长时间后自动回收（分钟），防止 sessions 无限增长导致内存泄漏 */
+    @Value("${agent.session.idle-ttl-minutes:30}")
+    private long idleTtlMinutes;
 
     public AgentService(ModelRouter modelRouter, RagService ragService,
                         Toolkit toolkit, LocalFileLongTermMemory longTermMemory,
@@ -66,7 +74,7 @@ public class AgentService {
     }
 
     private AgentSession getOrCreateSession(String sessionId, String modelName) {
-        return sessions.computeIfAbsent(sessionId, sid -> {
+        AgentSession session = sessions.computeIfAbsent(sessionId, sid -> {
             String resolvedModel = modelName != null ? modelName : "deepseek-v4-flash";
             Model model = modelRouter.resolve(resolvedModel);
 
@@ -81,11 +89,37 @@ public class AgentService {
                     .maxIters(10)
                     .build();
 
-            AgentSession session = new AgentSession(agent, modelRouter, resolvedModel);
+            AgentSession created = new AgentSession(agent, modelRouter, resolvedModel);
             log.info("Agent 会话已创建: sessionId={}, model={}, 已有 {} 个活跃会话",
                     sid, resolvedModel, sessions.size());
-            return session;
+            return created;
         });
+        session.touch();
+        return session;
+    }
+
+    /**
+     * 周期性清理空闲会话：超过 idleTtlMinutes 未活跃且没有正在执行的请求时回收。
+     * 不打断正在流式输出的会话（busy=true 的跳过，等下一轮）。
+     */
+    @Scheduled(fixedDelayString = "${agent.session.evict-interval-ms:60000}")
+    public void evictIdleSessions() {
+        long ttlMillis = idleTtlMinutes * 60_000L;
+        long now = System.currentTimeMillis();
+        sessions.forEach((sessionId, session) -> {
+            if (isIdle(session, now, ttlMillis)) {
+                if (sessions.remove(sessionId, session)) {
+                    session.agent.interrupt();
+                    log.info("Agent 空闲会话已回收: sessionId={}, 空闲 {} 分钟, 剩余活跃会话: {}",
+                            sessionId, (now - session.lastAccessAt) / 60_000, sessions.size());
+                }
+            }
+        });
+    }
+
+    /** 判断会话是否可回收：空闲超过 ttl 且当前没有正在执行的请求 */
+    static boolean isIdle(AgentSession session, long nowMillis, long ttlMillis) {
+        return !session.busy.get() && (nowMillis - session.lastAccessAt) >= ttlMillis;
     }
 
     /**
@@ -97,6 +131,7 @@ public class AgentService {
                 : modelName;
 
         AgentSession session = getOrCreateSession(sessionId, effectiveModel);
+        session.busy.set(true);
 
         RunAgentInput input = RunAgentInput.builder()
                 .threadId(sessionId)
@@ -105,6 +140,11 @@ public class AgentService {
                 .build();
 
         return session.aguiAdapter.run(input)
+                .doFinally(signal -> {
+                    // 无论正常结束、出错还是被取消，都恢复会话为空闲状态
+                    session.busy.set(false);
+                    session.touch();
+                })
                 .doOnComplete(() -> log.info("Agent 回复完成: sessionId={}", sessionId))
                 .doOnError(e -> log.error("Agent 会话出错: sessionId={}", sessionId, e));
     }
@@ -151,16 +191,25 @@ public class AgentService {
         final ModelRouter modelRouter;
         final String modelName;
         final LocalDateTime createdAt;
+        /** 最后一次活跃时间（毫秒），用于空闲回收 */
+        volatile long lastAccessAt;
+        /** 是否有正在执行的请求（流式输出中），回收时不可打断 */
+        final AtomicBoolean busy = new AtomicBoolean(false);
 
         AgentSession(ReActAgent agent, ModelRouter modelRouter, String modelName) {
             this.agent = agent;
             this.modelRouter = modelRouter;
             this.modelName = modelName;
             this.createdAt = LocalDateTime.now();
+            this.lastAccessAt = System.currentTimeMillis();
             this.aguiAdapter = new AguiAgentAdapter(agent, AguiAdapterConfig.builder()
                     .emitToolCallArgs(true)
                     .enableReasoning(true)
                     .build());
+        }
+
+        void touch() {
+            this.lastAccessAt = System.currentTimeMillis();
         }
     }
 

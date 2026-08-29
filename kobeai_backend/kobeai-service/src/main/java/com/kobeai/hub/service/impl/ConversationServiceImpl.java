@@ -10,12 +10,14 @@ import com.kobeai.hub.service.UserService;
 import com.kobeai.hub.util.JwtUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -43,12 +45,20 @@ public class ConversationServiceImpl implements ConversationService {
     }
 
     @Override
-    public ApiResponse<?> getConversations(String authHeader) {
+    public ApiResponse<?> getConversations(String authHeader, Integer page, Integer size) {
         try {
             User user = getUser(authHeader);
-            List<Conversation> conversations = conversationRepository.findByUserOrderByCreatedAtDesc(user);
 
-            if (conversations.isEmpty()) {
+            int pageNo = (page == null || page < 0) ? 0 : page;
+            int pageSize = (size == null || size <= 0 || size > 100) ? 50 : size;
+            Pageable pageable = PageRequest.of(pageNo, pageSize);
+            Page<Conversation> conversationPage =
+                    conversationRepository.findByUserOrderByCreatedAtDesc(user, pageable);
+
+            List<Conversation> conversations = new ArrayList<>(conversationPage.getContent());
+
+            // 首次使用时自动创建一个新对话
+            if (pageNo == 0 && conversations.isEmpty()) {
                 AIPlatform platform = platformRepository.findByType(Platform.DEEPSEEK)
                         .orElse(null);
                 Conversation newConversation = new Conversation();
@@ -59,7 +69,14 @@ public class ConversationServiceImpl implements ConversationService {
                 conversations.add(conversationRepository.save(newConversation));
             }
 
-            return ApiResponse.success("获取成功", conversations);
+            Map<String, Object> result = new HashMap<>();
+            result.put("list", conversations);
+            result.put("total", conversationPage.getTotalElements());
+            result.put("page", pageNo);
+            result.put("size", pageSize);
+            result.put("hasMore", pageNo * pageSize + conversations.size() < conversationPage.getTotalElements());
+
+            return ApiResponse.success("获取成功", result);
         } catch (Exception e) {
             log.error("获取会话列表失败: {}", e.getMessage(), e);
             return ApiResponse.error(e.getMessage());
